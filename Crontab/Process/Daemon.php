@@ -6,7 +6,7 @@ use Crontab\Config\ConfigManager;
 
 class Daemon
 {
-    private static $_workers = array();
+    private $_workers = array();
     private $_message = array();
     private $_pidFileHandle = NULL;
     
@@ -44,7 +44,7 @@ class Daemon
         }while(true);
     }
     
-    private static function generateWorker()
+    private function generateWorker()
     {
         $pid = pcntl_fork();
         if($pid==-1)
@@ -53,7 +53,7 @@ class Daemon
         }
         elseif($pid>0)
         {
-            self::$_workers[] = $pid;
+            $this->_workers[] = $pid;
         }
         else
         {
@@ -82,6 +82,9 @@ class Daemon
         pcntl_signal(SIGUSR1, array($this,'_reloadSignal'));
     }
     
+    /**
+     * exit signal handler
+     */
     private function _exitSignal()
     {
         file_put_contents('master.txt', 'stop '.getmypid()."\r\n",FILE_APPEND);
@@ -89,6 +92,9 @@ class Daemon
         exit(0);
     }
     
+    /**
+     * reload signal handler
+     */
     private function _reloadSignal()
     {
         file_put_contents('master.txt', 'reload '.getmypid()."\r\n",FILE_APPEND);

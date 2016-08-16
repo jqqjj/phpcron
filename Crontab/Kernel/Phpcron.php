@@ -26,19 +26,22 @@ class Phpcron
                 self::_start();
                 break;
         }
+        exit();
     }
 
     protected static function _start()
     {
         if(self::_isRunning())
         {
-            exit("phpcron is already running.".PHP_EOL);
+            echo "phpcron is already running.".PHP_EOL;
+            return FALSE;
         }
         
         $pid = pcntl_fork();
         if($pid == -1)
         {
-			 exit('phpcron starts fail:could not fork');
+			 echo 'phpcron starts fail:could not fork'.PHP_EOL;
+             return FALSE;
 		}
         elseif($pid>0)
         {
@@ -51,11 +54,13 @@ class Phpcron
             
             if(self::_isRunning())
             {
-                exit(" SUCCESS!".PHP_EOL);
+                echo " SUCCESS!".PHP_EOL;
+                return TRUE;
             }
             else
             {
-                exit(" FAILED!".PHP_EOL);
+                echo " FAILED!".PHP_EOL;
+                return FALSE;
             }
 		}
         else
