@@ -18,6 +18,7 @@ class Phpcron
             case 'restart':
                 break;
             case 'stop':
+                self::_stop();
                 break;
             case 'reload':
                 break;
@@ -29,7 +30,7 @@ class Phpcron
         exit();
     }
 
-    protected static function _start()
+    private static function _start()
     {
         if(self::_isRunning())
         {
@@ -70,12 +71,46 @@ class Phpcron
 		}
     }
     
-    protected static function stop()
+    private static function _stop()
     {
-        $configManager = new ConfigManager();
+        if(!self::_isRunning())
+        {
+            echo "ERROR! phpcron server PID file could not be found!".PHP_EOL;
+            return FALSE;
+        }
         
-        $pid_path = $configManager->getConfig('cli.pid_path');
-        $pid_name = $configManager->getConfig('cli.pid_name');
+        $pid = file_get_contents(self::_getPidFile());
+        
+        if(!preg_match('/^\d+$/', $pid))
+        {
+            echo "ERROR! phpcron server PID is illegal!".PHP_EOL;
+            return FALSE;
+        }
+        
+        try {
+            posix_kill($pid, SIGTERM);
+        } catch (Exception $ex) {
+            print_r($ex);
+            return FALSE;
+        }
+        
+        echo "Stopping phpcron";
+        $i = 0;
+        do{
+            usleep(500000);
+            echo '.';
+        }while(self::_isRunning() && ++$i<15);
+        
+        if(!self::_isRunning())
+        {
+            echo " SUCCESS!".PHP_EOL;
+            return TRUE;
+        }
+        else
+        {
+            echo " FAILED!".PHP_EOL;
+            return FALSE;
+        }
     }
 
     private static function _init()
@@ -109,5 +144,15 @@ class Phpcron
         $pid_name = $configManager->getConfig('cli.pid_name');
         
         return file_exists($pid_path.DIRECTORY_SEPARATOR.$pid_name);
+    }
+    
+    private static function _getPidFile()
+    {
+        $configManager = new ConfigManager();
+        
+        $pid_path = $configManager->getConfig('cli.pid_path');
+        $pid_name = $configManager->getConfig('cli.pid_name');
+        
+        return $pid_path.DIRECTORY_SEPARATOR.$pid_name;
     }
 }

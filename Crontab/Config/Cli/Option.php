@@ -34,6 +34,6 @@ class Option
             $argvs_arr = preg_split('/\s+/', $argvs);
         }
         
-        return array_intersect($argvs_arr, $this->_filter);
+        return array_values(array_intersect($argvs_arr, $this->_filter));
     }
 }
