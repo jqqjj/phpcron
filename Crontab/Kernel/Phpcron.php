@@ -16,6 +16,8 @@ class Phpcron
         switch (strtolower($cli_config[0]))
         {
             case 'restart':
+                self::_stop();
+                self::_start();
                 break;
             case 'stop':
                 self::_stop();

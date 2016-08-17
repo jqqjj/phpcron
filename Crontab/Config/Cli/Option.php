@@ -6,7 +6,7 @@ class Option
 {
     protected $_argvs;
     
-    protected $_filter = array('start','stop','reload');
+    protected $_filter = array('start','stop','reload','restart');
 
     public function __construct($argvs)
     {
