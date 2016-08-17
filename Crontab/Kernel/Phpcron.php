@@ -89,8 +89,8 @@ class Phpcron
         
         try {
             posix_kill($pid, SIGTERM);
-        } catch (Exception $ex) {
-            print_r($ex);
+        } catch (\Exception $ex) {
+            echo "ERROR! error message:".$ex->getMessage().PHP_EOL;
             return FALSE;
         }
         
