@@ -23,6 +23,7 @@ class Phpcron
                 self::_stop();
                 break;
             case 'reload':
+                self::_reload();
                 break;
             case 'start':
             default :
@@ -113,6 +114,37 @@ class Phpcron
             echo " FAILED!".PHP_EOL;
             return FALSE;
         }
+    }
+    
+    private static function _reload()
+    {
+        if(!self::_isRunning())
+        {
+            echo "ERROR! phpcron server PID file could not be found!".PHP_EOL;
+            return FALSE;
+        }
+        
+        $pid = file_get_contents(self::_getPidFile());
+        
+        if(!preg_match('/^\d+$/', $pid))
+        {
+            echo "ERROR! phpcron server PID is illegal!".PHP_EOL;
+            return FALSE;
+        }
+        
+        try {
+            posix_kill($pid, SIGUSR1);
+        } catch (\Exception $ex) {
+            echo "ERROR! error message:".$ex->getMessage().PHP_EOL;
+            return FALSE;
+        }
+        
+        echo "Reloading phpcron";
+        $i = 0;
+        do{
+            usleep(500000);
+            echo '.';
+        }while(self::_isRunning() && ++$i<15);
     }
 
     private static function _init()

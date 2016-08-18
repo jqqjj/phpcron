@@ -3,6 +3,7 @@
 namespace Crontab\Process;
 
 use Crontab\Config\ConfigManager;
+use Crontab\Process\Worker;
 
 class Daemon
 {
@@ -51,18 +52,32 @@ class Daemon
     
     private function _generateWorker($worker_number)
     {
-        $pid = pcntl_fork();
-        if($pid==-1)
+        if(!empty($worker_number) && intval($worker_number)>=1)
         {
-            exit("can not fork.");
-        }
-        elseif($pid>0)
-        {
-            $this->_workers[] = $pid;
+            $worker_number = intval($worker_number);
         }
         else
         {
-            exit($pid);
+            $worker_number = 1;
+        }
+        
+        for($i=0;$i<$worker_number;$i++)
+        {
+            $pid = pcntl_fork();
+            if($pid==-1)
+            {
+                $this->_killChildren();
+                exit("can not fork.");
+            }
+            elseif($pid>0)
+            {
+                $this->_workers[] = $pid;
+            }
+            else
+            {
+                new Worker();
+                exit($pid);
+            }
         }
     }
     
@@ -77,18 +92,18 @@ class Daemon
     private function _registerSignal()
     {
         //register exit signal
-        pcntl_signal(SIGHUP, array($this,'_exitSignal'));
-        pcntl_signal(SIGINT, array($this,'_exitSignal'));
-        pcntl_signal(SIGQUIT, array($this,'_exitSignal'));
-        pcntl_signal(SIGTERM, array($this,'_exitSignal'));
+        pcntl_signal(SIGHUP, array($this,'_exitHandler'));
+        pcntl_signal(SIGINT, array($this,'_exitHandler'));
+        pcntl_signal(SIGQUIT, array($this,'_exitHandler'));
+        pcntl_signal(SIGTERM, array($this,'_exitHandler'));
         //register reload signal
-        pcntl_signal(SIGUSR1, array($this,'_reloadSignal'));
+        pcntl_signal(SIGUSR1, array($this,'_reloadHandler'));
     }
     
     /**
      * exit signal handler
      */
-    private function _exitSignal()
+    private function _exitHandler()
     {
         file_put_contents('master.txt', 'stop '.getmypid()."\r\n",FILE_APPEND);
         $this->_unHoldPidFile();
@@ -98,7 +113,7 @@ class Daemon
     /**
      * reload signal handler
      */
-    private function _reloadSignal()
+    private function _reloadHandler()
     {
         file_put_contents('master.txt', 'reload '.getmypid()."\r\n",FILE_APPEND);
         $this->_unHoldPidFile();
@@ -148,6 +163,16 @@ class Daemon
         } catch (Exception $ex)
         {
             return FALSE;
+        }
+        
+        return TRUE;
+    }
+    
+    private function _killChildren()
+    {
+        while($worker = array_shift($this->_workers))
+        {
+            posix_kill($worker, SIGTERM);
         }
         
         return TRUE;
