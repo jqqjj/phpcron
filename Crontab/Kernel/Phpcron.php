@@ -52,7 +52,7 @@ class Phpcron
             echo "Starting phpcron";
             $i = 0;
             do{
-                usleep(500000);
+                sleep(1);
                 echo '.';
             }while(!self::_isRunning() && ++$i<15);
             
@@ -100,7 +100,7 @@ class Phpcron
         echo "Stopping phpcron";
         $i = 0;
         do{
-            usleep(500000);
+            sleep(1);
             echo '.';
         }while(self::_isRunning() && ++$i<15);
         
@@ -139,12 +139,9 @@ class Phpcron
             return FALSE;
         }
         
-        echo "Reloading phpcron";
-        $i = 0;
-        do{
-            usleep(500000);
-            echo '.';
-        }while(self::_isRunning() && ++$i<15);
+        echo "phpcron has been reloaded".PHP_EOL;
+        
+        return TRUE;
     }
 
     private static function _init()
