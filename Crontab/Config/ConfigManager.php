@@ -5,7 +5,18 @@ namespace Crontab\Config;
 class ConfigManager
 {
     private static $_config;
+    private static $_instance = NULL;
     
+    public static function get($index=NULL)
+    {
+        if(empty(self::$_instance))
+        {
+            self::$_instance = new self();
+        }
+        
+        return self::$_instance->getConfig($index);
+    }
+
     public function __construct()
     {
         if(empty(self::$_config))

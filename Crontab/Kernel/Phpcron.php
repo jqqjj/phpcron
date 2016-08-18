@@ -13,7 +13,7 @@ class Phpcron
         self::_init();
         
         $cli_config = $option->getOption();
-        switch (strtolower($cli_config[0]))
+        switch (strtolower($cli_config[1]))
         {
             case 'restart':
                 self::_stop();
@@ -117,8 +117,7 @@ class Phpcron
 
     private static function _init()
     {
-        $configManager = new ConfigManager();
-        $pid_path = $configManager->getConfig('cli.pid_path');
+        $pid_path = ConfigManager::get('base.pid_path');
         
         if(php_sapi_name()!='cli')
         {
@@ -140,20 +139,16 @@ class Phpcron
     
     private static function _isRunning()
     {
-        $configManager = new ConfigManager();
-        
-        $pid_path = $configManager->getConfig('cli.pid_path');
-        $pid_name = $configManager->getConfig('cli.pid_name');
+        $pid_path = ConfigManager::get('base.pid_path');
+        $pid_name = ConfigManager::get('base.pid_name');
         
         return file_exists($pid_path.DIRECTORY_SEPARATOR.$pid_name);
     }
     
     private static function _getPidFile()
     {
-        $configManager = new ConfigManager();
-        
-        $pid_path = $configManager->getConfig('cli.pid_path');
-        $pid_name = $configManager->getConfig('cli.pid_name');
+        $pid_path = ConfigManager::get('base.pid_path');
+        $pid_name = ConfigManager::get('base.pid_name');
         
         return $pid_path.DIRECTORY_SEPARATOR.$pid_name;
     }

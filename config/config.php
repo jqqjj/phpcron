@@ -7,12 +7,15 @@
  */
 
 return array(
+    'base'=>array(
+        'pid_path'=>'tmp',
+        'pid_name'=>'phpcron.pid',
+    ),
+    'worker'=>array(
+        'number'=>1,
+    ),
     'socket'=>array(
         'listen_port'=>6174,
         'listen_addr'=>'127.0.0.1',
-    ),
-    'cli'=>array(
-        'pid_path'=>'tmp',
-        'pid_name'=>'phpcron.pid',
     ),
 );

@@ -35,6 +35,11 @@ class Daemon
     {
         //register singal
         $this->_registerSignal();
+        
+        //workers starts to work.
+        $worker_number = ConfigManager::get('worker.number');
+        $this->_generateWorker($worker_number);
+        
         //loop
         do
         {
@@ -44,7 +49,7 @@ class Daemon
         }while(true);
     }
     
-    private function generateWorker()
+    private function _generateWorker($worker_number)
     {
         $pid = pcntl_fork();
         if($pid==-1)
@@ -57,16 +62,14 @@ class Daemon
         }
         else
         {
-            
+            exit($pid);
         }
     }
     
     private function _isRunning()
     {
-        $configManager = new ConfigManager();
-        
-        $pid_path = $configManager->getConfig('cli.pid_path');
-        $pid_name = $configManager->getConfig('cli.pid_name');
+        $pid_path = ConfigManager::get('base.pid_path');
+        $pid_name = ConfigManager::get('base.pid_name');
         
         return file_exists($pid_path.DIRECTORY_SEPARATOR.$pid_name);
     }
@@ -104,9 +107,8 @@ class Daemon
     
     private function _holdPidFile()
     {
-        $configManager = new ConfigManager();
-        $pid_path = $configManager->getConfig('cli.pid_path');
-        $pid_name = $configManager->getConfig('cli.pid_name');
+        $pid_path = ConfigManager::get('base.pid_path');
+        $pid_name = ConfigManager::get('base.pid_name');
         
         try
         {
@@ -117,7 +119,7 @@ class Daemon
         {
             try
             {
-                fclose($this->_pidFileHandle);
+                @fclose($this->_pidFileHandle);
             } catch (Exception $ex)
             {
                 return FALSE;
@@ -130,9 +132,8 @@ class Daemon
     
     private function _unHoldPidFile()
     {
-        $configManager = new ConfigManager();
-        $pid_path = $configManager->getConfig('cli.pid_path');
-        $pid_name = $configManager->getConfig('cli.pid_name');
+        $pid_path = ConfigManager::get('base.pid_path');
+        $pid_name = ConfigManager::get('base.pid_name');
         
         if(!$this->_pidFileHandle)
         {
