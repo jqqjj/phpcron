@@ -76,7 +76,7 @@ class Daemon
             else
             {
                 new Worker();
-                exit($pid);
+                exit(getmypid());
             }
         }
     }

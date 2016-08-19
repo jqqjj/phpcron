@@ -13,6 +13,7 @@ return array(
     ),
     'worker'=>array(
         'number'=>1,
+        'plugin_path'=>'TaskPlugin',
     ),
     'socket'=>array(
         'listen_port'=>6174,

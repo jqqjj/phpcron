@@ -70,7 +70,7 @@ class Phpcron
         else
         {
 			echo new Daemon();
-			exit($pid);
+			exit(getmypid());
 		}
     }
     
