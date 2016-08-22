@@ -22,6 +22,10 @@ class Daemon
         {
             $this->_message[] = "phpcron can't not update pid file.";
         }
+        elseif(!preg_match('/^[1-9]\d*$/', ConfigManager::get('worker.number')) || ConfigManager::get('worker.number')<=0)
+        {
+            $this->_message[] = 'phpcron config "worker.number" is not correct.';
+        }
         else
         {
             $this->_status = 'running';
@@ -40,22 +44,11 @@ class Daemon
         $this->_registerSignal();
         
         //workers starts to work.
-        $worker_number = ConfigManager::get('worker.number');
-        if(!preg_match('/^[1-9]\d*$/', $worker_number) || $worker_number<=0)
-        {
-            $this->_message[] = 'ERROR ! can\'t not found config "worker.number"';
-            return FALSE;
-        }
-        
-        $this->_generateWorker($worker_number);
+        $this->_generateWorker(ConfigManager::get('worker.number'));
         
         //loop until receive stop command
         while(!$this->_status=='stopping')
         {
-            if($this->_status=='reloading')
-            {
-                $this->_reloadChildren();
-            }
             pcntl_signal_dispatch();
             sleep(10);
         }
@@ -82,21 +75,13 @@ class Daemon
             //reload handler
             case SIGUSR1:
                 $this->_status = 'reloading';
+                $this->_reloadChildren();
+                $this->_status = 'running';
                 break;
             
-            //child exit handler
+            //child crash handler
             case SIGCHLD:
-                while(($pid=pcntl_waitpid(-1, $status, WNOHANG)) > 0)
-                {
-                    $this->_workers = array_diff($this->_workers, array($pid));
-                    do{
-                        $this->_generateWorker(1);
-                    }while(++$i<3);
-                    if(count($this->_workers)!=intval(ConfigManager::get('worker.number')))
-                    {
-                        //regenerate worker error handler
-                    }
-                }
+                $this->_childAutoRegenerate();
                 
                 break;
             
@@ -111,6 +96,27 @@ class Daemon
     private function _reloadChildren()
     {
         file_put_contents('master.txt', 'reload '.getmypid()."\r\n",FILE_APPEND);
+    }
+    
+    private function _childAutoRegenerate()
+    {
+        //Regenerate just run on running status
+        if($this->_status!='running')
+        {
+            return false;
+        }
+        
+        while(($pid=pcntl_waitpid(-1, $status, WNOHANG)) > 0)
+        {
+            $this->_workers = array_diff($this->_workers, array($pid));
+            do{
+                $this->_generateWorker(1);
+            }while(++$i<3);
+            if(count($this->_workers)!=intval(ConfigManager::get('worker.number')))
+            {
+                //regenerate worker error handler
+            }
+        }
     }
     
     private function _generateWorker($worker_number)
