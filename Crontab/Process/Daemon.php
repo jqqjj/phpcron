@@ -10,7 +10,8 @@ class Daemon
     private $_workers = array();
     private $_message = array();
     private $_pidFileHandle = NULL;
-    
+    private $_status = NULL;
+
     public function __construct()
     {
         if($this->_isRunning())
@@ -23,6 +24,7 @@ class Daemon
         }
         else
         {
+            $this->_status = 'running';
             $this->_daemon();
         }
     }
@@ -39,19 +41,82 @@ class Daemon
         
         //workers starts to work.
         $worker_number = ConfigManager::get('worker.number');
+        if(!preg_match('/^[1-9]\d*$/', $worker_number) || $worker_number<=0)
+        {
+            $this->_message[] = 'ERROR ! can\'t not found config "worker.number"';
+            return FALSE;
+        }
+        
         $this->_generateWorker($worker_number);
         
-        //loop
-        do
+        //loop until receive stop command
+        while(!$this->_status=='stopping')
         {
+            if($this->_status=='reloading')
+            {
+                $this->_reloadChildren();
+            }
             pcntl_signal_dispatch();
-            file_put_contents('master.txt', date("Y-m-d H:i:s")."\r\n",FILE_APPEND);
             sleep(10);
-        }while(true);
+        }
+        exit(getmypid());
+    }
+    
+    /**
+     * exit signal handler
+     */
+    private function _signalHandler($signo)
+    {
+        switch ($signo)
+        {
+            //exit handler
+            case SIGHUP:
+            case SIGINT:
+            case SIGQUIT:
+            case SIGTERM:
+                $this->_killChildren();
+                $this->_unHoldPidFile();
+                $this->_status = 'stopping';
+                break;
+            
+            //reload handler
+            case SIGUSR1:
+                $this->_status = 'reloading';
+                break;
+            
+            //child exit handler
+            case SIGCHLD:
+                while(($pid=pcntl_waitpid(-1, $status, WNOHANG)) > 0)
+                {
+                    $this->_workers = array_diff($this->_workers, array($pid));
+                    do{
+                        $this->_generateWorker(1);
+                    }while(++$i<3);
+                    if(count($this->_workers)!=intval(ConfigManager::get('worker.number')))
+                    {
+                        //regenerate worker error handler
+                    }
+                }
+                
+                break;
+            
+            default :
+                break;
+        }
+    }
+    
+    /**
+     * reload signal handler
+     */
+    private function _reloadChildren()
+    {
+        file_put_contents('master.txt', 'reload '.getmypid()."\r\n",FILE_APPEND);
     }
     
     private function _generateWorker($worker_number)
     {
+        $is_first = count($this->_workers)==0;
+        
         if(!empty($worker_number) && intval($worker_number)>=1)
         {
             $worker_number = intval($worker_number);
@@ -64,10 +129,15 @@ class Daemon
         for($i=0;$i<$worker_number;$i++)
         {
             $pid = pcntl_fork();
-            if($pid==-1)
+            //the first time generating fail will kill all children
+            if($pid==-1 && $is_first)
             {
                 $this->_killChildren();
-                exit("can not fork.");
+                exit("generate workers error.");
+            }
+            elseif($pid==-1)
+            {
+                echo "ERROR ! Auto restart child fail.".PHP_EOL;
             }
             elseif($pid>0)
             {
@@ -92,34 +162,16 @@ class Daemon
     private function _registerSignal()
     {
         //register exit signal
-        pcntl_signal(SIGHUP, array($this,'_exitHandler'));
-        pcntl_signal(SIGINT, array($this,'_exitHandler'));
-        pcntl_signal(SIGQUIT, array($this,'_exitHandler'));
-        pcntl_signal(SIGTERM, array($this,'_exitHandler'));
+        pcntl_signal(SIGHUP, array($this,'_signalHandler'));
+        pcntl_signal(SIGINT, array($this,'_signalHandler'));
+        pcntl_signal(SIGQUIT, array($this,'_signalHandler'));
+        pcntl_signal(SIGTERM, array($this,'_signalHandler'));
         //register reload signal
-        pcntl_signal(SIGUSR1, array($this,'_reloadHandler'));
+        pcntl_signal(SIGUSR1, array($this,'_signalHandler'));
+        //register children exit signal
+        pcntl_signal(SIGCHLD, array($this,'_signalHandler'));
     }
-    
-    /**
-     * exit signal handler
-     */
-    private function _exitHandler()
-    {
-        file_put_contents('master.txt', 'stop '.getmypid()."\r\n",FILE_APPEND);
-        $this->_unHoldPidFile();
-        exit(0);
-    }
-    
-    /**
-     * reload signal handler
-     */
-    private function _reloadHandler()
-    {
-        file_put_contents('master.txt', 'reload '.getmypid()."\r\n",FILE_APPEND);
-        $this->_unHoldPidFile();
-        exit(0);
-    }
-    
+
     private function _holdPidFile()
     {
         $pid_path = ConfigManager::get('base.pid_path');

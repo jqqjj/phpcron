@@ -12,7 +12,7 @@ return array(
         'pid_name'=>'phpcron.pid',
     ),
     'worker'=>array(
-        'number'=>1,
+        'number'=>3,
         'plugin_path'=>'TaskPlugin',
     ),
     'socket'=>array(
