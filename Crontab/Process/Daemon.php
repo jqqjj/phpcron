@@ -60,7 +60,6 @@ class Daemon
             sleep(10);
         }
         
-        $this->_killWorkers($this->_workers);
         $this->_unHoldPidFile();
         exit("phpcron exit normally.pid:".getmypid().PHP_EOL);
     }
@@ -78,6 +77,7 @@ class Daemon
             case SIGQUIT:
             case SIGTERM:
                 $this->_status = 'stopping';
+                $this->_killWorkers($this->_workers);
                 break;
             
             //reload handler
@@ -135,7 +135,7 @@ class Daemon
             $i = 0;
             while (count($this->_workers)<intval(ConfigManager::get('worker.number')) && $i++<3)
             {
-                $this->_addWorkers(1);
+                $this->_workers = array_merge($this->_workers,$this->_addWorkers(1));
             }
         }
         
