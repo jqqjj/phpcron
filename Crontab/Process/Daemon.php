@@ -16,15 +16,15 @@ class Daemon
     {
         if($this->_isRunning())
         {
-            $this->_message[] = "phpcron is already running.";
+            $this->_message[] = "phpcron pid file is already exists.";
         }
         elseif(!$this->_holdPidFile())
         {
-            $this->_message[] = "phpcron can't not update pid file.";
+            $this->_message[] = "phpcron can't not write pid file.";
         }
-        elseif(!preg_match('/^[1-9]\d*$/', ConfigManager::get('worker.number')) || ConfigManager::get('worker.number')<=0)
+        elseif(!$this->_checkConfig())
         {
-            $this->_message[] = 'phpcron config "worker.number" is not correct.';
+            $this->_message[] = 'phpcron config is not correct.';
         }
         else
         {
@@ -35,7 +35,7 @@ class Daemon
     
     public function __toString()
     {
-        return implode("\r\n", $this->_message);
+        return implode(PHP_EOL, $this->_message);
     }
     
     private function _daemon()
@@ -44,15 +44,25 @@ class Daemon
         $this->_registerSignal();
         
         //workers starts to work.
-        $this->_generateWorker(ConfigManager::get('worker.number'));
+        $workers = $this->_addWorkers(ConfigManager::get('worker.number'));
+        if(ConfigManager::get('worker.number') != count($workers))
+        {
+            $this->_killWorkers($workers);
+            $this->_unHoldPidFile();
+            exit("start workers error.".PHP_EOL);
+        }
+        $this->_workers = $workers;
         
-        //loop until receive stop command
-        while(!$this->_status=='stopping')
+        //loop until receive stop command or workers is empty
+        while($this->_status!='stopping' && !empty($this->_workers))
         {
             pcntl_signal_dispatch();
             sleep(10);
         }
-        exit(getmypid());
+        
+        $this->_killWorkers($this->_workers);
+        $this->_unHoldPidFile();
+        exit("phpcron exit normally.pid:".getmypid().PHP_EOL);
     }
     
     /**
@@ -67,21 +77,19 @@ class Daemon
             case SIGINT:
             case SIGQUIT:
             case SIGTERM:
-                $this->_killChildren();
-                $this->_unHoldPidFile();
                 $this->_status = 'stopping';
                 break;
             
             //reload handler
             case SIGUSR1:
                 $this->_status = 'reloading';
-                $this->_reloadChildren();
+                $this->_reloadWorkers();
                 $this->_status = 'running';
                 break;
             
             //child crash handler
             case SIGCHLD:
-                $this->_childAutoRegenerate();
+                $this->_resurrectWorkers();
                 
                 break;
             
@@ -93,36 +101,53 @@ class Daemon
     /**
      * reload signal handler
      */
-    private function _reloadChildren()
+    private function _reloadWorkers()
     {
-        file_put_contents('master.txt', 'reload '.getmypid()."\r\n",FILE_APPEND);
-    }
-    
-    private function _childAutoRegenerate()
-    {
-        //Regenerate just run on running status
-        if($this->_status!='running')
+        echo "starting reload workers.".PHP_EOL;
+        
+        if(!$this->_checkConfig())
         {
+            echo "phpcron config is not correct when reloading".PHP_EOL;
             return false;
         }
         
+        $new_workers = $this->_addWorkers(ConfigManager::get('worker.number'));
+        if(count($new_workers) != intval(ConfigManager::get('worker.number')))
+        {
+            $this->_killWorkers($new_workers);
+            echo "phpcron reloads fail".PHP_EOL;
+            return FALSE;
+        }
+        
+        $this->_killWorkers($this->_workers);
+        $this->_workers = $new_workers;
+        
+        echo "reloads workers success.".PHP_EOL;
+    }
+    
+    private function _resurrectWorkers()
+    {
+        $status = NULL;
         while(($pid=pcntl_waitpid(-1, $status, WNOHANG)) > 0)
         {
             $this->_workers = array_diff($this->_workers, array($pid));
-            do{
-                $this->_generateWorker(1);
-            }while(++$i<3);
-            if(count($this->_workers)!=intval(ConfigManager::get('worker.number')))
+            
+            $i = 0;
+            while (count($this->_workers)<intval(ConfigManager::get('worker.number')) && $i++<3)
             {
-                //regenerate worker error handler
+                $this->_addWorkers(1);
             }
+        }
+        
+        if(count($this->_workers)!=intval(ConfigManager::get('worker.number')))
+        {
+            //resurrect worker error handler
+            echo "resurrect workers error.".PHP_EOL;
         }
     }
     
-    private function _generateWorker($worker_number)
+    private function _addWorkers($worker_number)
     {
-        $is_first = count($this->_workers)==0;
-        
         if(!empty($worker_number) && intval($worker_number)>=1)
         {
             $worker_number = intval($worker_number);
@@ -132,22 +157,18 @@ class Daemon
             $worker_number = 1;
         }
         
+        $workers = array();
         for($i=0;$i<$worker_number;$i++)
         {
             $pid = pcntl_fork();
-            //the first time generating fail will kill all children
-            if($pid==-1 && $is_first)
+            
+            if($pid==-1)
             {
-                $this->_killChildren();
-                exit("generate workers error.");
-            }
-            elseif($pid==-1)
-            {
-                echo "ERROR ! Auto restart child fail.".PHP_EOL;
+                echo "ERROR ! Add worker fail.".PHP_EOL;
             }
             elseif($pid>0)
             {
-                $this->_workers[] = $pid;
+                $workers[] = $pid;
             }
             else
             {
@@ -155,6 +176,8 @@ class Daemon
                 exit(getmypid());
             }
         }
+        
+        return $workers;
     }
     
     private function _isRunning()
@@ -226,13 +249,37 @@ class Daemon
         return TRUE;
     }
     
-    private function _killChildren()
+    private function _killWorkers($workers)
     {
-        while($worker = array_shift($this->_workers))
+        while($worker = array_shift($workers))
         {
             posix_kill($worker, SIGTERM);
         }
         
         return TRUE;
+    }
+    
+    /**
+     * check the real-time config
+     * @return bool
+     */
+    private function _checkConfig()
+    {
+        $configManager = new ConfigManager();
+        $config = $configManager->getConfig();
+        
+        //reset config
+        $configManager->setConfig(NULL);
+        
+        if(preg_match('/^[1-9]\d*$/', ConfigManager::get('worker.number')) && ConfigManager::get('worker.number')>0)
+        {
+            return TRUE;
+        }
+        else
+        {
+            //restore config
+            $configManager->setConfig($config);
+            return FALSE;
+        }
     }
 }

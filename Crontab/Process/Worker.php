@@ -12,6 +12,10 @@ class Worker
     public function __construct()
     {
         $this->_run();
+        while (true)
+        {
+            sleep(mt_rand(5, 15));
+        }
     }
     
     private function _run()

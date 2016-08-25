@@ -21,12 +21,22 @@ class ConfigManager
     {
         if(empty(self::$_config))
         {
-            self::_loadConfig();
+            $this->setConfig($this->_loadConfig());
         }
+    }
+    
+    public function setConfig($config)
+    {
+        self::$_config = $config;
     }
     
     public function getConfig($index=NULL)
     {
+        if(empty(self::$_config))
+        {
+            $this->setConfig($this->_loadConfig());
+        }
+        
         if(isset($index))
         {
             return $this->getIndexConfig(self::$_config,$index);
@@ -37,7 +47,7 @@ class ConfigManager
         }
     }
 
-    private static function _loadConfig()
+    private function _loadConfig()
     {
         $config_file = 'config'.DIRECTORY_SEPARATOR.'config.php';
         $config_file_local = 'config'.DIRECTORY_SEPARATOR.'local'.DIRECTORY_SEPARATOR.'config.php';
@@ -50,14 +60,14 @@ class ConfigManager
         if(file_exists($config_file_local))
         {
             $config_local = include $config_file_local;
-            $config = self::_mergeConfig($config_global, $config_local);
+            $config = $this->_mergeConfig($config_global, $config_local);
         }
         else
         {
             $config = $config_global;
         }
         
-        return self::$_config = $config;
+        return $config;
     }
     
     private function getIndexConfig($config,$index)
@@ -79,13 +89,13 @@ class ConfigManager
         }
     }
     
-    private static function _mergeConfig(Array $main_config,Array $overwrite_config)
+    private function _mergeConfig(Array $main_config,Array $overwrite_config)
     {
         foreach ($overwrite_config AS $key=>$value)
         {
             if(is_array($main_config[$key]) && is_array($overwrite_config[$key]))
             {
-                $main_config[$key] = self::_mergeConfig($main_config[$key], $overwrite_config[$key]);
+                $main_config[$key] = $this->_mergeConfig($main_config[$key], $overwrite_config[$key]);
             }
             else
             {
