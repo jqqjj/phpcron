@@ -54,10 +54,10 @@ class Daemon
         $this->_workers = $workers;
         
         //loop until receive stop command or workers is empty
-        while($this->_status!='stopping' && !empty($this->_workers))
+        while(!empty($this->_workers))
         {
-            pcntl_signal_dispatch();
             sleep(10);
+            pcntl_signal_dispatch();
         }
         
         $this->_unHoldPidFile();
@@ -133,13 +133,13 @@ class Daemon
             $this->_workers = array_diff($this->_workers, array($pid));
             
             $i = 0;
-            while (count($this->_workers)<intval(ConfigManager::get('worker.number')) && $i++<3)
+            while ($this->_status == 'running' && count($this->_workers)<intval(ConfigManager::get('worker.number')) && $i++<3)
             {
                 $this->_workers = array_merge($this->_workers,$this->_addWorkers(1));
             }
         }
         
-        if(count($this->_workers)!=intval(ConfigManager::get('worker.number')))
+        if($this->_status == 'running' && count($this->_workers)!=intval(ConfigManager::get('worker.number')))
         {
             //resurrect worker error handler
             echo "resurrect workers error.".PHP_EOL;
