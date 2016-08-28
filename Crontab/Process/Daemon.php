@@ -58,6 +58,19 @@ class Daemon
         {
             sleep(10);
             pcntl_signal_dispatch();
+            switch ($this->_status)
+            {
+                case 'reloading':
+                    $this->_reloadWorkers();
+                    $this->_status = 'running';
+                    break;
+                case 'running':
+                    $this->_autoMaintainWorkers();
+                    break;
+                case 'stopping':
+                    $this->_killWorkers($this->_workers);
+                    break;
+            }
         }
         
         $this->_unHoldPidFile();
@@ -77,19 +90,16 @@ class Daemon
             case SIGQUIT:
             case SIGTERM:
                 $this->_status = 'stopping';
-                $this->_killWorkers($this->_workers);
                 break;
             
             //reload handler
             case SIGUSR1:
                 $this->_status = 'reloading';
-                $this->_reloadWorkers();
-                $this->_status = 'running';
                 break;
             
             //child crash handler
             case SIGCHLD:
-                $this->_resurrectWorkers();
+                $this->_recoupWorkers();
                 
                 break;
             
@@ -125,27 +135,30 @@ class Daemon
         echo "reloads workers success.".PHP_EOL;
     }
     
-    private function _resurrectWorkers()
+    private function _recoupWorkers()
     {
         $status = NULL;
         while(($pid=pcntl_waitpid(-1, $status, WNOHANG)) > 0)
         {
             $this->_workers = array_diff($this->_workers, array($pid));
-            
-            $i = 0;
-            while ($this->_status == 'running' && count($this->_workers)<intval(ConfigManager::get('worker.number')) && $i++<3)
-            {
-                $this->_workers = array_merge($this->_workers,$this->_addWorkers(1));
-            }
+        }
+    }
+    
+    private function _autoMaintainWorkers()
+    {
+        $i = 0;
+        while(intval(ConfigManager::get('worker.number')) > count($this->_workers) && $i++<3)
+        {
+            $this->_workers = array_merge($this->_workers,$this->_addWorkers(intval(ConfigManager::get('worker.number')) - count($this->_workers)));
         }
         
-        if($this->_status == 'running' && count($this->_workers)!=intval(ConfigManager::get('worker.number')))
+        if(count($this->_workers)!=intval(ConfigManager::get('worker.number')))
         {
             //resurrect worker error handler
             echo "resurrect workers error.".PHP_EOL;
         }
     }
-    
+
     private function _addWorkers($worker_number)
     {
         if(!empty($worker_number) && intval($worker_number)>=1)
@@ -253,7 +266,11 @@ class Daemon
     {
         while($worker = array_shift($workers))
         {
-            posix_kill($worker, SIGTERM);
+            $i = 0;
+            while(!posix_kill($worker, SIGTERM) && $i<3)
+            {
+                $i++;
+            }
         }
         
         return TRUE;
