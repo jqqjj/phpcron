@@ -4,59 +4,34 @@
 namespace Crontab\Process;
 
 use Crontab\Config\ConfigManager;
+use Crontab\Task\TaskInterface;
 
 class Worker
 {
     private $_plugins = array();
-
-    public function __construct()
-    {
-        //$this->_run();
-        $this->_registerSignal();
-        //loop until receive stop command or workers is empty
-        while(TRUE)
-        {
-            pcntl_signal_dispatch();
-            sleep(10);
-        }
-    }
     
-    private function _run()
+    public function run()
     {
-        //load tasks
-        file_put_contents('log.txt',"Start:".PHP_EOL);
-        try
-        {
-            $path = ConfigManager::get('worker.plugin_path');
-            if(file_exists($path) && is_dir($path))
-            {
-                //load plugin
-                $this->_loadPlugin($path);
-            }
-        } catch (\Exception $ex)
-        {
-            file_put_contents('log.txt', $ex->getMessage().PHP_EOL,FILE_APPEND);
-        }
+        $this->_registerSignal();
+        
+        $this->_loadPlugin(ConfigManager::get('plugins'));
         
         //run tasks
+        while(TRUE)
+        {
+            sleep(10);
+            pcntl_signal_dispatch();
+        }
     }
     
-    private function _loadPlugin($path)
+    private function _loadPlugin($list)
     {
-        $res = opendir($path);
-        while ($file=readdir($res))
+        foreach ($list AS $key=>$value)
         {
-            file_put_contents('log.txt', $file.PHP_EOL,FILE_APPEND);
-            if($file == '.' || $file == '..')
+            $plugin = new $value;
+            if($plugin instanceof TaskInterface)
             {
-                file_put_contents('log.txt', 'system file'.PHP_EOL,FILE_APPEND);
-                continue;
-            }
-            
-            if(is_dir(rtrim($path,DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.$file))
-            {
-                file_put_contents('log.txt', 'is dir'.PHP_EOL,FILE_APPEND);
-                continue;
+                $this->_plugins[$key] = $plugin;
             }
         }
     }
@@ -72,10 +47,6 @@ class Worker
     
     private function _signalHandler($signo)
     {
-        file_put_contents('child_signal.txt',date('Y-m-d H:i:s')."\t",FILE_APPEND);
-        file_put_contents('child_signal.txt',"pid:".getmypid()."\t",FILE_APPEND);
-        file_put_contents('child_signal.txt',"signal:{$signo}\r\n",FILE_APPEND);
-        
         switch ($signo)
         {
             //exit handler

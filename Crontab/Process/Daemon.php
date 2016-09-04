@@ -185,7 +185,8 @@ class Daemon
             }
             else
             {
-                new Worker();
+                $worker = new Worker();
+                $worker->run();
                 exit(getmypid());
             }
         }

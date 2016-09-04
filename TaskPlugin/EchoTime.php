@@ -12,13 +12,8 @@ use Crontab\Task\TaskInterface;
 
 class EchoTime implements TaskInterface
 {
-    public function getConfig()
-    {
-        return "* * * * * *";
-    }
-
     public function work()
     {
-        file_put_contents('work.txt', date("Y-m-d H:i:s").PHP_EOL);
+        file_put_contents('echotime.txt', date("Y-m-d H:i:s").PHP_EOL,FILE_APPEND);
     }
 }

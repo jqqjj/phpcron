@@ -13,9 +13,8 @@ return array(
     ),
     'worker'=>array(
         'number'=>3,
-        'plugin_path'=>'TaskPlugin',
     ),
-    'socket'=>array(
+    'listen'=>array(
         'listen_port'=>6174,
         'listen_addr'=>'127.0.0.1',
     ),
