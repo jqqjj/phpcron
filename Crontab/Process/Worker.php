@@ -9,12 +9,20 @@ use Crontab\Task\TaskInterface;
 class Worker
 {
     private $_plugins = array();
+    private $_socket;
+    
+    public function __construct($socket)
+    {
+        $this->_socket = $socket;
+    }
     
     public function run()
     {
         $this->_registerSignal();
         
         $this->_loadPlugin(ConfigManager::get('plugins'));
+        
+        //socket_accept($this->_socket);
         
         //run tasks
         while(TRUE)
@@ -23,7 +31,7 @@ class Worker
             pcntl_signal_dispatch();
         }
     }
-    
+
     private function _loadPlugin($list)
     {
         foreach ($list AS $key=>$value)

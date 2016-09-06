@@ -4,6 +4,7 @@ namespace Crontab\Process;
 
 use Crontab\Config\ConfigManager;
 use Crontab\Process\Worker;
+use Crontab\Network\Socket;
 
 class Daemon
 {
@@ -11,6 +12,7 @@ class Daemon
     private $_message = array();
     private $_pidFileHandle = NULL;
     private $_status = NULL;
+    private $_socket = NULL;
 
     public function __construct()
     {
@@ -42,6 +44,13 @@ class Daemon
     {
         //register singal
         $this->_registerSignal();
+        
+        //listen
+        if(!$this->_listen())
+        {
+            $this->_unHoldPidFile();
+            exit("can not create listener.".PHP_EOL);
+        }
         
         //workers starts to work.
         $workers = $this->_addWorkers(ConfigManager::get('worker.number'));
@@ -185,7 +194,7 @@ class Daemon
             }
             else
             {
-                $worker = new Worker();
+                $worker = new Worker($this->_socket);
                 $worker->run();
                 exit(getmypid());
             }
@@ -194,6 +203,21 @@ class Daemon
         return $workers;
     }
     
+    private function _listen()
+    {
+        $socket = new Socket();
+        
+        $this->_socket = $socket->getSocket();
+        if(empty($this->_socket))
+        {
+            return FALSE;
+        }
+        else
+        {
+            return TRUE;
+        }
+    }
+
     private function _isRunning()
     {
         $pid_path = ConfigManager::get('base.pid_path');
