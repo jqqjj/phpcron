@@ -4,7 +4,7 @@ namespace Crontab\Process;
 
 use Crontab\Config\ConfigManager;
 use Crontab\Process\Worker;
-use Crontab\Network\Socket;
+use Crontab\Network\SocketManager;
 
 class Daemon
 {
@@ -205,16 +205,15 @@ class Daemon
     
     private function _listen()
     {
-        $socket = new Socket();
+        $this->_socket = new SocketManager();
         
-        $this->_socket = $socket->getSocket();
-        if(empty($this->_socket))
+        if($this->_socket->init())
         {
-            return FALSE;
+            return TRUE;
         }
         else
         {
-            return TRUE;
+            return FALSE;
         }
     }
 

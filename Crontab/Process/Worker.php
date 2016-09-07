@@ -5,13 +5,14 @@ namespace Crontab\Process;
 
 use Crontab\Config\ConfigManager;
 use Crontab\Task\TaskInterface;
+use Crontab\Network\SocketManager;
 
 class Worker
 {
     private $_plugins = array();
     private $_socket;
     
-    public function __construct($socket)
+    public function __construct(SocketManager $socket)
     {
         $this->_socket = $socket;
     }
@@ -22,7 +23,9 @@ class Worker
         
         $this->_loadPlugin(ConfigManager::get('plugins'));
         
-        if($socket = socket_accept($this->_socket))
+        
+        
+        if($socket = socket_accept($this->_socket->getSocket()))
         {
             while(socket_recv($socket, $buf, 1, MSG_WAITALL))
             {

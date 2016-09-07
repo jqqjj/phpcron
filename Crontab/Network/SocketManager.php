@@ -5,14 +5,14 @@ namespace Crontab\Network;
 
 use Crontab\Config\ConfigManager;
 
-class Socket
+class SocketManager
 {
     private $_socket;
     private $_message = array();
 
     public function __construct()
     {
-        $this->_create();
+        
     }
     
     public function getSocket()
@@ -32,8 +32,13 @@ class Socket
         }
     }
 
-    private function _create()
+    public function init()
     {
+        if(is_resource($this->_socket))
+        {
+            return TRUE;
+        }
+        
         $address = ConfigManager::get('listen.listen_addr');
         $port = ConfigManager::get('listen.listen_port');
         
@@ -79,4 +84,11 @@ class Socket
         return TRUE;
     }
     
+    public function __destruct()
+    {
+        if(is_resource($this->_socket))
+        {
+            socket_close($this->_socket);
+        }
+    }
 }
