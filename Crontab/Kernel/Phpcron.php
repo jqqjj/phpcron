@@ -13,7 +13,8 @@ class Phpcron
         self::_init();
         
         $cli_config = $option->getOption();
-        switch (strtolower($cli_config[1]))
+        $cmd = isset($cli_config[1]) ? strtolower($cli_config[1]) : '';
+        switch ($cmd)
         {
             case 'restart':
                 self::_stop();

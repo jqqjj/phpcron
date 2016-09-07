@@ -93,7 +93,7 @@ class ConfigManager
     {
         foreach ($overwrite_config AS $key=>$value)
         {
-            if(is_array($main_config[$key]) && is_array($overwrite_config[$key]))
+            if(isset($main_config[$key]) && is_array($main_config[$key]) && is_array($overwrite_config[$key]))
             {
                 $main_config[$key] = $this->_mergeConfig($main_config[$key], $overwrite_config[$key]);
             }

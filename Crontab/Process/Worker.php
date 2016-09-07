@@ -22,7 +22,11 @@ class Worker
         
         $this->_loadPlugin(ConfigManager::get('plugins'));
         
-        //socket_accept($this->_socket);
+        if(socket_accept($this->_socket))
+        {
+            socket_recv($this->_socket, $buf, 1);
+            file_put_contents(getmypid().'.txt', $buf,FILE_APPEND);
+        }
         
         //run tasks
         while(TRUE)

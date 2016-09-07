@@ -35,7 +35,7 @@ class Socket
     private function _create()
     {
         $address = ConfigManager::get('listen.listen_addr');
-        $port = ConfigManager::get('listen.listen_addr');
+        $port = ConfigManager::get('listen.listen_port');
         
         if(!$this->_socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP))
         {
