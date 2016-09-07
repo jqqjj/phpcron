@@ -44,32 +44,34 @@ class Socket
         {
             if(!$this->_socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP))
             {
-                throw new \Exception("can not create socket");
+                throw new \Exception(socket_strerror(socket_last_error($this->_socket)));
             }
 
             if(!socket_set_option($this->_socket, SOL_SOCKET, SO_REUSEADDR, 1))
             {
-                socket_close($this->_socket);
-                throw new \Exception("can not set socket option");
+                throw new \Exception(socket_strerror(socket_last_error($this->_socket)));
             }
 
             if(!socket_bind($this->_socket, $address, $port))
             {
-                socket_close($this->_socket);
-                throw new \Exception("can not bind socket");
+                throw new \Exception(socket_strerror(socket_last_error($this->_socket)));
             }
 
             if(!socket_listen($this->_socket, 5))
             {
-                socket_close($this->_socket);
-                throw new \Exception("can not listen");
+                throw new \Exception(socket_strerror(socket_last_error($this->_socket)));
             }
-            
         }
         catch (\Exception $ex)
         {
-            ini_set('display_errors',$display_errors);
+            if(is_resource($this->_socket))
+            {
+                socket_close($this->_socket);
+            }
+            
             $this->_message[] = $ex->getMessage();
+            
+            ini_set('display_errors',$display_errors);
             return FALSE;
         }
         
