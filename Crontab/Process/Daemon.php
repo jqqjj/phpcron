@@ -209,6 +209,7 @@ class Daemon
         
         if($this->_socket->init())
         {
+            $this->_socket->set_block_mode(0);
             return TRUE;
         }
         else

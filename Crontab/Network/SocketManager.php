@@ -84,6 +84,24 @@ class SocketManager
         return TRUE;
     }
     
+    public function set_block_mode($mode)
+    {
+        $display_errors = ini_get('display_errors');
+        ini_set('display_errors',0);
+        
+        if($mode)
+        {
+            $result = socket_set_block($this->_socket);
+        }
+        else
+        {
+            $result = socket_set_nonblock($this->_socket);
+        }
+        
+        ini_set('display_errors',$display_errors);
+        return $result;
+    }
+    
     public function __destruct()
     {
         if(is_resource($this->_socket))
