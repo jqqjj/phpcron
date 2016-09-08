@@ -28,42 +28,40 @@ class Worker
         
         while($this->_status == 'running')
         {
-            pcntl_signal_dispatch();
-            
-            file_put_contents('log.txt', date("Y-m-d H:i:s").':',FILE_APPEND);
-            file_put_contents('log.txt', 'after dispatch'.PHP_EOL,FILE_APPEND);
-            
-            $fd = $this->_socket->getSocket();
-            $read = array_merge($this->_connections, array($fd));
-            $write = array();
-            
-            file_put_contents('log.txt', date("Y-m-d H:i:s").':',FILE_APPEND);
-            file_put_contents('log.txt', 'count read:'.count($read).PHP_EOL,FILE_APPEND);
-            
-            if(!socket_select($read, $write, $except = null, 10))
+            $sockets = $this->_select_read();
+            //new connection handler
+            if(in_array($this->_socket->getSocket(), $sockets))
             {
-                file_put_contents('log.txt', date("Y-m-d H:i:s").':',FILE_APPEND);
-                file_put_contents('log.txt', 'select continue'.PHP_EOL,FILE_APPEND);
-                continue;
-            }
-            file_put_contents('log.txt', date("Y-m-d H:i:s").':',FILE_APPEND);
-            file_put_contents('log.txt', 'select true'.PHP_EOL,FILE_APPEND);
-            
-            if(in_array($fd, $read))
-            {
-                file_put_contents('log.txt', date("Y-m-d H:i:s").':',FILE_APPEND);
-                file_put_contents('log.txt', 'new connection comes'.PHP_EOL,FILE_APPEND);
-                $connection = socket_accept($fd);
-                $this->_connections[] = $connection;
+                $this->_connections[] = socket_accept($this->_socket->getSocket());
+                unset($sockets[array_search($this->_socket->getSocket(), $sockets)]);
             }
             
-            unset($read[array_search($fd, $read)]);
-            
-            foreach ($read AS $socket)
+            foreach ($sockets AS $socket)
             {
+                //read data
+                $data = socket_read($socket, 1024, PHP_NORMAL_READ);
+                if($data===FALSE)
+                {
+                    socket_close($socket);
+                    unset($this->_connections[array_search($socket, $this->_connections)]);
+                    continue;
+                }
+                //write data
                 file_put_contents('socket_'.  getmypid().'.txt', socket_read($socket, 512, PHP_NORMAL_READ),FILE_APPEND);
             }
+            
+            pcntl_signal_dispatch();
         }
+    }
+    
+    private function _select_read()
+    {
+        $fd = $this->_socket->getSocket();
+        $read = array_merge($this->_connections, array($fd));
+        $write = array();
+        socket_select($read, $write, $except = null, 10);
+        
+        return $read;
     }
 
     private function _loadPlugin($list)
