@@ -207,9 +207,8 @@ class Daemon
     {
         $this->_socket = new SocketManager();
         
-        if($this->_socket->init())
+        if($this->_socket->init() && $this->_socket->set_block_mode(0))
         {
-            $this->_socket->set_block_mode(0);
             return TRUE;
         }
         else
