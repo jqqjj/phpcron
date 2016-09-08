@@ -17,7 +17,7 @@ while($con && $i++<3){
 //        $hear=socket_read($socket,1024);
 //        echo $hear;
         $words=fgets(STDIN);
-        file_put_contents('log.txt', $words,FILE_APPEND);
+        file_put_contents('client_log.txt', $words,FILE_APPEND);
         if($words=="exit"){break;}
         socket_write($socket,$words);
 }
