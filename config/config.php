@@ -17,5 +17,6 @@ return array(
     'listen'=>array(
         'listen_port'=>6174,
         'listen_addr'=>'127.0.0.1',
+        'display_errors'=>FALSE,
     ),
 );

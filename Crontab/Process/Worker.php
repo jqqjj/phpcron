@@ -28,40 +28,56 @@ class Worker
         
         while($this->_status == 'running')
         {
-            $sockets = $this->_select_read();
+            $fd = $this->_socket->getSocket();
+            $sockets = $this->_socket->select(array_merge($this->_connections, array($fd)));
+            
             //new connection handler
-            if(in_array($this->_socket->getSocket(), $sockets))
+            $new_connection = FALSE;
+            if(in_array($fd, $sockets))
             {
-                $this->_connections[] = socket_accept($this->_socket->getSocket());
-                unset($sockets[array_search($this->_socket->getSocket(), $sockets)]);
+                $new_connection = $this->_socket->accept();
             }
             
-            foreach ($sockets AS $socket)
+            if(!empty($new_connection))
             {
-                //read data
-                $data = socket_read($socket, 1024, PHP_NORMAL_READ);
-                if($data===FALSE)
-                {
-                    socket_close($socket);
-                    unset($this->_connections[array_search($socket, $this->_connections)]);
-                    continue;
-                }
-                //write data
-                file_put_contents('socket_'.  getmypid().'.txt', socket_read($socket, 512, PHP_NORMAL_READ),FILE_APPEND);
+                $this->_connections[] = $new_connection;
             }
+            //read and write data
+            $this->_exchange(array_filter(array_merge($sockets,array($new_connection))));
             
             pcntl_signal_dispatch();
         }
     }
     
-    private function _select_read()
+    private function _exchange(Array $sockets)
     {
-        $fd = $this->_socket->getSocket();
-        $read = array_merge($this->_connections, array($fd));
-        $write = array();
-        socket_select($read, $write, $except = null, 10);
+        if(in_array($this->_socket->getSocket(), $sockets))
+        {
+            unset($sockets[array_search($this->_socket->getSocket(), $sockets)]);
+        }
         
-        return $read;
+        foreach ($sockets AS $socket)
+        {
+            //read data
+            $data = $this->_socket->read($socket);
+            if($data===FALSE)
+            {
+                socket_close($socket);
+                unset($this->_connections[array_search($socket, $this->_connections)]);
+                continue;
+            }
+            
+            file_put_contents('server.txt', date("Y-m-d H:i:s").':'.$data,FILE_APPEND);
+            
+            //write data
+            $write_data = "receive\n";
+            if(FALSE === socket_write($socket, $write_data,strlen($write_data)))
+            {
+                socket_close($socket);
+                unset($this->_connections[array_search($socket, $this->_connections)]);
+                continue;
+            }
+        }
     }
 
     private function _loadPlugin($list)
