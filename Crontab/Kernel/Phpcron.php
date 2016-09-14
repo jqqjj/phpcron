@@ -8,10 +8,11 @@ use Crontab\Process\Daemon;
 
 class Phpcron
 {
-    public static function main(Option $option)
+    public static function main($argvs)
     {
         self::_init();
         
+        $option = new Option($argvs);
         $cli_config = $option->getOption();
         $cmd = isset($cli_config[1]) ? strtolower($cli_config[1]) : '';
         switch ($cmd)
