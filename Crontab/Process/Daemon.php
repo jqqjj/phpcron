@@ -24,7 +24,7 @@ class Daemon
         {
             $this->_message[] = "phpcron can't not write pid file.";
         }
-        elseif(!$this->_checkConfig())
+        elseif(!$this->_updateConfig())
         {
             $this->_message[] = 'phpcron config is not correct.';
         }
@@ -124,7 +124,7 @@ class Daemon
     {
         echo "starting reload workers.".PHP_EOL;
         
-        if(!$this->_checkConfig())
+        if(!$this->_updateConfig())
         {
             echo "phpcron config is not correct when reloading".PHP_EOL;
             return false;
@@ -205,10 +205,11 @@ class Daemon
     
     private function _listen()
     {
-        $this->_socket = new SocketManager();
+        $socketManager = new SocketManager();
         
-        if($this->_socket->init() && $this->_socket->set_block_mode(0))
+        if($socketManager->generate() && $socketManager->set_block_mode(0))
         {
+            $this->_socket = $socketManager->getSocket();
             return TRUE;
         }
         else
@@ -301,10 +302,10 @@ class Daemon
     }
     
     /**
-     * check the real-time config
+     * update the real-time config
      * @return bool
      */
-    private function _checkConfig()
+    private function _updateConfig()
     {
         $configManager = new ConfigManager();
         $config = $configManager->getConfig();
@@ -318,7 +319,7 @@ class Daemon
         }
         else
         {
-            //restore config
+            //recover config
             $configManager->setConfig($config);
             return FALSE;
         }

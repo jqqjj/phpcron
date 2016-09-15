@@ -11,14 +11,35 @@ class SocketManager
     private $_message = array();
     private $_debug = false;
 
-    public function __construct()
+    public function __construct($socket=NULL)
     {
         $this->_debug = (bool)ConfigManager::get('listen.display_errors');
+        if(is_resource($socket))
+        {
+            $this->setSocket($socket);
+        }
     }
     
     public function getSocket()
     {
+        if(empty($this->_socket))
+        {
+            $this->generate();
+        }
         return $this->_socket;
+    }
+    
+    public function setSocket($socket)
+    {
+        if(is_resource($socket))
+        {
+            $this->_socket = $socket;
+            return TRUE;
+        }
+        else
+        {
+            return FALSE;
+        }
     }
     
     public function getMessage()
@@ -32,8 +53,8 @@ class SocketManager
             return FALSE;
         }
     }
-
-    public function init()
+    
+    public function generate()
     {
         if(is_resource($this->_socket))
         {
@@ -45,33 +66,35 @@ class SocketManager
         
         $this->_debug('prefix');
         
+        $socket = NULL;
+        
         try
         {
-            if(!$this->_socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP))
+            if(!$socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP))
             {
-                throw new \Exception(socket_strerror(socket_last_error($this->_socket)));
+                throw new \Exception(socket_strerror(socket_last_error($socket)));
             }
-
-            if(!socket_set_option($this->_socket, SOL_SOCKET, SO_REUSEADDR, 1))
+            
+            if(!socket_set_option($socket, SOL_SOCKET, SO_REUSEADDR, 1))
             {
-                throw new \Exception(socket_strerror(socket_last_error($this->_socket)));
+                throw new \Exception(socket_strerror(socket_last_error($socket)));
             }
-
-            if(!socket_bind($this->_socket, $address, $port))
+            
+            if(!socket_bind($socket, $address, $port))
             {
-                throw new \Exception(socket_strerror(socket_last_error($this->_socket)));
+                throw new \Exception(socket_strerror(socket_last_error($socket)));
             }
-
-            if(!socket_listen($this->_socket, 5))
+            
+            if(!socket_listen($socket, 5))
             {
-                throw new \Exception(socket_strerror(socket_last_error($this->_socket)));
+                throw new \Exception(socket_strerror(socket_last_error($socket)));
             }
         }
         catch (\Exception $ex)
         {
-            if(is_resource($this->_socket))
+            if(is_resource($socket))
             {
-                socket_close($this->_socket);
+                socket_close($socket);
             }
             
             $this->_message[] = $ex->getMessage();
@@ -81,12 +104,20 @@ class SocketManager
             return FALSE;
         }
         
+        $this->_socket = $socket;
+        
         $this->_debug('suffix');
+        
         return TRUE;
     }
     
     public function set_block_mode($mode)
     {
+        if(!is_resource($this->_socket))
+        {
+            return FALSE;
+        }
+        
         $this->_debug('prefix');
         
         if($mode)
@@ -105,6 +136,11 @@ class SocketManager
     
     public function accept()
     {
+        if(!is_resource($this->_socket))
+        {
+            return FALSE;
+        }
+        
         $this->_debug('prefix');
         
         $connection = socket_accept($this->_socket);
@@ -140,11 +176,11 @@ class SocketManager
         return $result;
     }
     
-    public function read($socket)
+    public function read($socket,$len=1024,$type=PHP_NORMAL_READ)
     {
         $this->_debug('prefix');
         
-        $data = socket_read($socket, 1024, PHP_NORMAL_READ);
+        $data = socket_read($socket, $len, $type);
         
         $this->_debug('suffix');
         

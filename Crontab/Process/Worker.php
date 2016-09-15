@@ -10,13 +10,13 @@ use Crontab\Network\SocketManager;
 class Worker
 {
     private $_plugins = array();
-    private $_socket;
+    private $_socketManager;
     private $_connections = array();
     private $_status = NULL;
     
-    public function __construct(SocketManager $socket)
+    public function __construct($socket)
     {
-        $this->_socket = $socket;
+        $this->_socketManager = new SocketManager($socket);
         $this->_status = 'running';
     }
     
@@ -28,14 +28,14 @@ class Worker
         
         while($this->_status == 'running')
         {
-            $fd = $this->_socket->getSocket();
-            $sockets = $this->_socket->select(array_merge($this->_connections, array($fd)));
+            $fd = $this->_socketManager->getSocket();
+            $sockets = $this->_socketManager->select(array_merge($this->_connections, array($fd)));
             
             //new connection handler
             $new_connection = FALSE;
             if(in_array($fd, $sockets))
             {
-                $new_connection = $this->_socket->accept();
+                $new_connection = $this->_socketManager->accept();
             }
             
             if(!empty($new_connection))
@@ -51,15 +51,15 @@ class Worker
     
     private function _exchange(Array $sockets)
     {
-        if(in_array($this->_socket->getSocket(), $sockets))
+        if(in_array($this->_socketManager->getSocket(), $sockets))
         {
-            unset($sockets[array_search($this->_socket->getSocket(), $sockets)]);
+            unset($sockets[array_search($this->_socketManager->getSocket(), $sockets)]);
         }
         
         foreach ($sockets AS $socket)
         {
             //read data
-            $data = $this->_socket->read($socket);
+            $data = $this->_socketManager->read($socket);
             if($data===FALSE)
             {
                 socket_close($socket);
