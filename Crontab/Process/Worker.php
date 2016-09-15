@@ -26,13 +26,22 @@ class Worker
         
         $this->_loadPlugin(ConfigManager::get('plugins'));
         
-        while($this->_status == 'running')
+        while($this->_status == 'running' || !empty($this->_connections))
         {
+            $new_connection = FALSE;
             $fd = $this->_socketManager->getSocket();
-            $sockets = $this->_socketManager->select(array_merge($this->_connections, array($fd)));
+            
+            //if receives a stop command,it will not accepts new connecitons.
+            if($this->_status != 'running')
+            {
+                $sockets = $this->_socketManager->select($this->_connections);
+            }
+            else
+            {
+                $sockets = $this->_socketManager->select(array_merge($this->_connections, array($fd)));
+            }
             
             //new connection handler
-            $new_connection = FALSE;
             if(in_array($fd, $sockets))
             {
                 $new_connection = $this->_socketManager->accept();
@@ -40,7 +49,7 @@ class Worker
             
             if(!empty($new_connection))
             {
-                $this->_connections[] = $new_connection;
+                $this->_connections[(int)$new_connection] = $new_connection;
             }
             //read and write data
             $this->_exchange(array_filter(array_merge($sockets,array($new_connection))));
