@@ -12,17 +12,18 @@ $con=socket_connect($socket,'127.0.0.1',6174);
 if(!$con){socket_close($socket);exit;}
 echo "Link\n";
 
-$str = "Hello,this is the socket test.\n";
-file_put_contents('client.txt', "");
+$str = "Hello,this is the socket test.";
 
-for($i=0;$i<strlen($str)-1;$i++)
-{
-    socket_write($socket,$str{$i}."\n");
-    $data = socket_read($socket, 1024, PHP_NORMAL_READ);
-    if($data !== FALSE)
-    {
-        file_put_contents('client.txt', date("Y-m-d H:i:s").':'."==============#{$data}#=============",FILE_APPEND);
-    }
-    sleep(1);
-}
+//send header
+socket_write($socket,"<command>-_-</command><stream>".strlen($str)."</stream>\n");
+//receive the header back
+$header_back = socket_read($socket, 1024, PHP_NORMAL_READ);
+
+sleep(5);
+
+//send main stream
+socket_write($socket,$str);
+$content_back = socket_read($socket, 1024, PHP_NORMAL_READ);
+
+//close socket
 socket_close($socket);

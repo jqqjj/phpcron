@@ -12,6 +12,7 @@ class Worker
     private $_plugins = array();
     private $_socketManager;
     private $_connections = array();
+    private $_stream = array();
     private $_status = NULL;
     
     public function __construct($socket)
@@ -52,13 +53,13 @@ class Worker
                 $this->_connections[(int)$new_connection] = $new_connection;
             }
             //read and write data
-            $this->_exchange(array_filter(array_merge($sockets,array($new_connection))));
+            $this->_socketsIO(array_filter(array_merge($sockets,array($new_connection))));
             
             pcntl_signal_dispatch();
         }
     }
     
-    private function _exchange(Array $sockets)
+    private function _socketsIO(Array $sockets)
     {
         if(in_array($this->_socketManager->getSocket(), $sockets))
         {
@@ -67,25 +68,66 @@ class Worker
         
         foreach ($sockets AS $socket)
         {
-            //read data
+            $this->_IO($socket);
+        }
+    }
+    
+    private function _IO($socket)
+    {
+        //first read the content length
+        if(!isset($this->_stream[(int)$socket]) || $this->_stream[(int)$socket]<=0)
+        {
             $data = $this->_socketManager->read($socket);
+            $matches_stream = array();$matches_command = array();
+            //close connection if header content is illegal
+            if(!preg_match('/\<stream\>([1-9]\d*)\<\/stream\>/', $data, $matches_stream) || !preg_match('/\<command\>[\w\-\_]+\<\/command\>/', $data,$matches_command))
+            {
+                $this->_closeSocket($socket);
+                return FALSE;
+            }
+            //close when write connection false
+            if(FALSE === socket_write($socket, "<stream>{$matches_stream[1]}</stream>\n"))
+            {
+                $this->_closeSocket($socket);
+                return FALSE;
+            }
+            //record the length of main content.
+            $this->_stream[(int)$socket] = $matches_stream[1];
+        }
+        //second read main content
+        else
+        {
+            $stream_length = $this->_stream[(int)$socket];
+            unset($this->_stream[(int)$socket]);
+            
+            $data = $this->_socketManager->read($socket,$stream_length,PHP_BINARY_READ);
             if($data===FALSE)
             {
-                socket_close($socket);
-                unset($this->_connections[array_search($socket, $this->_connections)]);
-                continue;
+                $this->_closeSocket($socket);
+                return FALSE;
             }
             
-            file_put_contents('server.txt', date("Y-m-d H:i:s").':'.$data,FILE_APPEND);
-            
-            //write data
-            $write_data = "receive\n";
-            if(FALSE === socket_write($socket, $write_data,strlen($write_data)))
+            if(FALSE === socket_write($socket, "<stream>".strlen($data)."</stream>\n"))
             {
                 socket_close($socket);
                 unset($this->_connections[array_search($socket, $this->_connections)]);
-                continue;
             }
+            
+            //add the mapped plugin task
+        }
+    }
+    
+    private function _closeSocket($socket)
+    {
+        if(in_array($socket, $this->_connections))
+        {
+            socket_close($socket);
+            unset($this->_connections[array_search($socket, $this->_connections)]);
+            return TRUE;
+        }
+        else
+        {
+            return FALSE;
         }
     }
 

@@ -176,7 +176,7 @@ class SocketManager
         return $result;
     }
     
-    public function read($socket,$len=1024,$type=PHP_NORMAL_READ)
+    public function read($socket,$len=2048,$type=PHP_NORMAL_READ)
     {
         $this->_debug('prefix');
         
