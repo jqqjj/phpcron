@@ -5,7 +5,7 @@ namespace Crontab\Process;
 
 use Crontab\Config\ConfigManager;
 use Crontab\Task\TaskInterface;
-use Crontab\Network\SocketManager;
+use Crontab\IO\SocketManager;
 
 class Worker
 {

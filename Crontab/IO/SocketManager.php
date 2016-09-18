@@ -1,7 +1,7 @@
 <?php
 
 
-namespace Crontab\Network;
+namespace Crontab\IO;
 
 use Crontab\Config\ConfigManager;
 

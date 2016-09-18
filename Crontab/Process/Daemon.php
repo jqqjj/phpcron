@@ -4,7 +4,7 @@ namespace Crontab\Process;
 
 use Crontab\Config\ConfigManager;
 use Crontab\Process\Worker;
-use Crontab\Network\SocketManager;
+use Crontab\IO\SocketManager;
 
 class Daemon
 {
