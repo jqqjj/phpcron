@@ -162,23 +162,9 @@ class Phpcron
 
     private static function _init()
     {
-        $pid_path = ConfigManager::get('base.pid_path');
-        
         if(php_sapi_name()!='cli')
         {
             exit("This Application must be started with cli mode.".PHP_EOL);
-        }
-        if(!file_exists($pid_path))
-        {
-            exit("pid path not exists:".getcwd().DIRECTORY_SEPARATOR.$pid_path.PHP_EOL);
-        }
-        if(!is_writable($pid_path))
-        {
-            exit("pid path can not be writeable:".getcwd().DIRECTORY_SEPARATOR.$pid_path.PHP_EOL);
-        }
-        if(!is_readable($pid_path))
-        {
-            exit("pid path can not be readable:".getcwd().DIRECTORY_SEPARATOR.$pid_path.PHP_EOL);
         }
     }
     
