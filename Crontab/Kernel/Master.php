@@ -5,8 +5,9 @@ namespace Crontab\Process;
 use Crontab\Config\ConfigManager;
 use Crontab\Process\Worker;
 use Crontab\IO\SocketManager;
+use Crontab\Logger\LoggerInterface\LoggerInterface;
 
-class Daemon
+class Master
 {
     private $_workers = array();
     private $_message = array();
@@ -14,7 +15,7 @@ class Daemon
     private $_status = NULL;
     private $_socket = NULL;
 
-    public function __construct()
+    public function __construct(LoggerInterface $logger)
     {
         if($this->_isRunning())
         {

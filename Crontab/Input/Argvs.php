@@ -1,12 +1,12 @@
 <?php
 
-namespace Crontab\Config\Cli;
+namespace Crontab\Input;
 
-class Option
+class Argvs
 {
     protected $_argvs;
     
-    protected $_filter = array('start','stop','reload','restart');
+    protected $_filter = array('start','stop','reload','restart','status','-d');
 
     public function __construct($argvs)
     {

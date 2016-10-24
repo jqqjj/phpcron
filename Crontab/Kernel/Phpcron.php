@@ -2,9 +2,12 @@
 
 namespace Crontab\Kernel;
 
-use Crontab\Config\Cli\Option;
+use Crontab\Input\Argvs;
 use Crontab\Config\ConfigManager;
-use Crontab\Process\Daemon;
+use Crontab\Process\Master;
+use Crontab\Helper\Runner;
+use Crontab\Logger\Terminal AS TerminalLogger;
+use Crontab\Logger\LogFile AS LogFileLogger;
 
 class Phpcron
 {
@@ -12,27 +15,38 @@ class Phpcron
     {
         self::_init();
         
-        $option = new Option($argvs);
-        $cli_config = $option->getOption();
-        $cmd = isset($cli_config[1]) ? strtolower($cli_config[1]) : '';
-        switch ($cmd)
+        $input = new Argvs($argvs);
+        $cli_config = $input->getOption();
+        
+        if(in_array('-d',$cli_config))
         {
-            case 'restart':
-                self::_stop();
-                self::_start();
-                break;
-            case 'stop':
-                self::_stop();
-                break;
-            case 'reload':
-                self::_reload();
-                break;
-            case 'start':
-            default :
-                self::_start();
-                break;
+            //daemon
+            self::daemon($cli_config);
         }
-        exit();
+        else
+        {
+            //terminal
+            new Master(new TerminalLogger());
+        }
+    }
+    
+    public static function daemon($options)
+    {
+        $runner = new Runner();
+        $runner->run(function() use ($options){
+            if(in_array('stop', $options))
+            {
+                self::_stop();
+            }
+            elseif(in_array('reload', $options) || in_array('restart', $options))
+            {
+                self::_reload();
+            }
+            else
+            {
+                self::_start();
+            }
+        });
     }
 
     private static function _start()
