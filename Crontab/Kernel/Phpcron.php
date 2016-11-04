@@ -3,11 +3,9 @@
 namespace Crontab\Kernel;
 
 use Crontab\Input\Argvs;
-use Crontab\Config\ConfigManager;
 use Crontab\Process\Master;
-use Crontab\Helper\Runner;
+use Crontab\Helper\DaemonManager;
 use Crontab\Logger\Terminal AS TerminalLogger;
-use Crontab\Logger\LogFile AS LogFileLogger;
 
 class Phpcron
 {
@@ -21,143 +19,41 @@ class Phpcron
         if(in_array('-d',$cli_config))
         {
             //daemon
-            self::daemon($cli_config);
+            self::_daemon($cli_config);
         }
         else
         {
             //terminal
-            new Master(new TerminalLogger());
+            self::_terminal($cli_config);
         }
+        exit(0);
     }
     
-    public static function daemon($options)
+    private static function _daemon($options)
     {
-        $runner = new Runner();
-        $runner->run(function() use ($options){
-            if(in_array('stop', $options))
-            {
-                self::_stop();
-            }
-            elseif(in_array('reload', $options) || in_array('restart', $options))
-            {
-                self::_reload();
-            }
-            else
-            {
-                self::_start();
-            }
-        });
-    }
-
-    private static function _start()
-    {
-        if(self::_isRunning())
+        $daemon = new DaemonManager();
+        if(in_array('start',$cli_config))
         {
-            echo "phpcron is already running.".PHP_EOL;
-            return FALSE;
+            $daemon->start();
         }
-        
-        $pid = pcntl_fork();
-        if($pid == -1)
+        elseif(in_array('stop',$cli_config))
         {
-			 echo 'phpcron starts fail:could not fork'.PHP_EOL;
-             return FALSE;
-		}
-        elseif($pid>0)
-        {
-            echo "Starting phpcron";
-            $i = 0;
-            do{
-                sleep(1);
-                echo '.';
-            }while(!self::_isRunning() && ++$i<15);
             
-            if(self::_isRunning())
-            {
-                echo " SUCCESS!".PHP_EOL;
-                return TRUE;
-            }
-            else
-            {
-                echo " FAILED!".PHP_EOL;
-                return FALSE;
-            }
-		}
-        else
-        {
-			echo new Daemon();
-			exit(getmypid());
-		}
-    }
-    
-    private static function _stop()
-    {
-        if(!self::_isRunning())
-        {
-            echo "ERROR! phpcron server PID file could not be found!".PHP_EOL;
-            return FALSE;
         }
-        
-        $pid = file_get_contents(self::_getPidFile());
-        
-        if(!preg_match('/^\d+$/', $pid))
+        elseif(in_array('restart',$cli_config))
         {
-            echo "ERROR! phpcron server PID is illegal!".PHP_EOL;
-            return FALSE;
+            
         }
-        
-        try {
-            posix_kill($pid, SIGTERM);
-        } catch (\Exception $ex) {
-            echo "ERROR! error message:".$ex->getMessage().PHP_EOL;
-            return FALSE;
-        }
-        
-        echo "Stopping phpcron";
-        $i = 0;
-        do{
-            sleep(1);
-            echo '.';
-        }while(self::_isRunning() && ++$i<15);
-        
-        if(!self::_isRunning())
+        elseif(in_array('reload',$cli_config))
         {
-            echo " SUCCESS!".PHP_EOL;
-            return TRUE;
-        }
-        else
-        {
-            echo " FAILED!".PHP_EOL;
-            return FALSE;
+            
         }
     }
     
-    private static function _reload()
+    private static function _terminal()
     {
-        if(!self::_isRunning())
-        {
-            echo "ERROR! phpcron server PID file could not be found!".PHP_EOL;
-            return FALSE;
-        }
-        
-        $pid = file_get_contents(self::_getPidFile());
-        
-        if(!preg_match('/^\d+$/', $pid))
-        {
-            echo "ERROR! phpcron server PID is illegal!".PHP_EOL;
-            return FALSE;
-        }
-        
-        try {
-            posix_kill($pid, SIGUSR1);
-        } catch (\Exception $ex) {
-            echo "ERROR! error message:".$ex->getMessage().PHP_EOL;
-            return FALSE;
-        }
-        
-        echo "phpcron has been reloaded".PHP_EOL;
-        
-        return TRUE;
+        $master = new Master(new TerminalLogger());
+        $master->run();
     }
 
     private static function _init()
@@ -166,21 +62,5 @@ class Phpcron
         {
             exit("This Application must be started with cli mode.".PHP_EOL);
         }
-    }
-    
-    private static function _isRunning()
-    {
-        $pid_path = ConfigManager::get('base.pid_path');
-        $pid_name = ConfigManager::get('base.pid_name');
-        
-        return file_exists($pid_path.DIRECTORY_SEPARATOR.$pid_name);
-    }
-    
-    private static function _getPidFile()
-    {
-        $pid_path = ConfigManager::get('base.pid_path');
-        $pid_name = ConfigManager::get('base.pid_name');
-        
-        return $pid_path.DIRECTORY_SEPARATOR.$pid_name;
     }
 }

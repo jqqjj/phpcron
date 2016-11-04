@@ -9,36 +9,18 @@ use Crontab\Logger\LoggerInterface\LoggerInterface;
 
 class Master
 {
-    private $_workers = array();
-    private $_message = array();
-    private $_pidFileHandle = NULL;
-    private $_status = NULL;
-    private $_socket = NULL;
+    private $logger;
+    private $_status;
 
     public function __construct(LoggerInterface $logger)
     {
-        if($this->_isRunning())
-        {
-            $this->_message[] = "phpcron pid file is already exists.";
-        }
-        elseif(!$this->_holdPidFile())
-        {
-            $this->_message[] = "phpcron can't not write pid file.";
-        }
-        elseif(!$this->_updateConfig())
-        {
-            $this->_message[] = 'phpcron config is not correct.';
-        }
-        else
-        {
-            $this->_status = 'running';
-            $this->_daemon();
-        }
+        $this->logger = $logger;
     }
     
-    public function __toString()
+    public function run()
     {
-        return implode(PHP_EOL, $this->_message);
+        $this->_status = 'running';
+        $this->_daemon();
     }
     
     private function _daemon()
@@ -238,54 +220,6 @@ class Master
         pcntl_signal(SIGUSR1, array($this,'_signalHandler'));
         //register children exit signal
         pcntl_signal(SIGCHLD, array($this,'_signalHandler'));
-    }
-
-    private function _holdPidFile()
-    {
-        $pid_path = ConfigManager::get('base.pid_path');
-        $pid_name = ConfigManager::get('base.pid_name');
-        
-        try
-        {
-            $this->_pidFileHandle = @fopen($pid_path.DIRECTORY_SEPARATOR.$pid_name, 'w+');
-            @fwrite($this->_pidFileHandle, getmypid());
-            @flock($this->_pidFileHandle, LOCK_EX);
-        } catch (Exception $ex)
-        {
-            try
-            {
-                @fclose($this->_pidFileHandle);
-            } catch (Exception $ex)
-            {
-                return FALSE;
-            }
-            return FALSE;
-        }
-        
-        return TRUE;
-    }
-    
-    private function _unHoldPidFile()
-    {
-        $pid_path = ConfigManager::get('base.pid_path');
-        $pid_name = ConfigManager::get('base.pid_name');
-        
-        if(!$this->_pidFileHandle)
-        {
-            return TRUE;
-        }
-        
-        try
-        {
-            @flock($this->_pidFileHandle, LOCK_UN);
-            @fclose($this->_pidFileHandle);
-            @unlink($pid_path.DIRECTORY_SEPARATOR.$pid_name);
-        } catch (Exception $ex)
-        {
-            return FALSE;
-        }
-        
-        return TRUE;
     }
     
     private function _killWorkers($workers)

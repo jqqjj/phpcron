@@ -2,7 +2,7 @@
 
 namespace Crontab\Helper;
 
-class Runner
+class RunnerBox
 {
     public function run(\Closure $function)
     {
