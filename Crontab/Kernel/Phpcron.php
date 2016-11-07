@@ -24,7 +24,7 @@ class Phpcron
         else
         {
             //terminal
-            self::_terminal($cli_config);
+            self::_terminal();
         }
         exit(0);
     }

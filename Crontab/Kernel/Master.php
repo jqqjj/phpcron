@@ -7,60 +7,57 @@ use Crontab\Process\Worker;
 use Crontab\IO\SocketManager;
 use Crontab\Logger\LoggerInterface\LoggerInterface;
 
+/**
+ * 目标：
+ * master 监听新任务的到来，及子任务的完成，子任务的异常退出，子任务以独立进程运行，正常完成任务时向master发送完成信号，
+ *        若master收到子进程退出信号但没收到子进程发送的完成信号，可视为异常退出。
+ * master 有四个状态，一个是等待任务的到来，二是收到任务时处理，三是子进程完成信号处理,四是子进程退出处理
+ */
+
 class Master
 {
+    //waiting、addtask、taskexit、exit
+    private $_command;
+    private $_workers;
+    private $_logger;
     private $logger;
-    private $_status;
 
     public function __construct(LoggerInterface $logger)
     {
-        $this->logger = $logger;
+        $this->_logger = $logger;
     }
     
     public function run()
     {
-        $this->_status = 'running';
-        $this->_daemon();
-    }
-    
-    private function _daemon()
-    {
+        $this->_command = 'waiting';
+        
         //register singal
         $this->_registerSignal();
         
-        //listen
+        //listen task from networks
         if(!$this->_listen())
         {
-            $this->_unHoldPidFile();
-            exit("can not create listener.".PHP_EOL);
+            $this->_logger->log("can not create listener.");
+            exit();
         }
-        
-        //workers starts to work.
-        $workers = $this->_addWorkers(ConfigManager::get('worker.number'));
-        if(ConfigManager::get('worker.number') != count($workers))
-        {
-            $this->_killWorkers($workers);
-            $this->_unHoldPidFile();
-            exit("start workers error.".PHP_EOL);
-        }
-        $this->_workers = $workers;
-        
-        //loop until receive stop command or workers is empty
+        //loop crontab tasks
+        $this->_loop();
+    }
+    
+    private function _loop()
+    {
+        //loop until workers is empty
         while(!empty($this->_workers))
         {
             sleep(10);
             pcntl_signal_dispatch();
             switch ($this->_status)
             {
-                case 'reloading':
-                    $this->_reloadWorkers();
-                    $this->_status = 'running';
+                case 'exit':
+                    $this->_killWorkers($this->_workers);
                     break;
                 case 'running':
                     $this->_autoMaintainWorkers();
-                    break;
-                case 'stopping':
-                    $this->_killWorkers($this->_workers);
                     break;
             }
         }
@@ -81,12 +78,12 @@ class Master
             case SIGINT:
             case SIGQUIT:
             case SIGTERM:
-                $this->_status = 'stopping';
+                $this->_command = 'taskexit';
                 break;
             
             //reload handler
             case SIGUSR1:
-                $this->_status = 'reloading';
+                $this->_command = 'reloading';
                 break;
             
             //child crash handler
@@ -200,25 +197,15 @@ class Master
             return FALSE;
         }
     }
-
-    private function _isRunning()
-    {
-        $pid_path = ConfigManager::get('base.pid_path');
-        $pid_name = ConfigManager::get('base.pid_name');
-        
-        return file_exists($pid_path.DIRECTORY_SEPARATOR.$pid_name);
-    }
     
     private function _registerSignal()
     {
-        //register exit signal
+        //register exit signal(when receive a exit command)
         pcntl_signal(SIGHUP, array($this,'_signalHandler'));
         pcntl_signal(SIGINT, array($this,'_signalHandler'));
         pcntl_signal(SIGQUIT, array($this,'_signalHandler'));
         pcntl_signal(SIGTERM, array($this,'_signalHandler'));
-        //register reload signal
-        pcntl_signal(SIGUSR1, array($this,'_signalHandler'));
-        //register children exit signal
+        //register children exit signal(task finish)
         pcntl_signal(SIGCHLD, array($this,'_signalHandler'));
     }
     
