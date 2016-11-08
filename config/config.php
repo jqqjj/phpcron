@@ -11,6 +11,9 @@ return array(
         'pid_path'=>'tmp',
         'pid_name'=>'phpcron.pid',
     ),
+    'exception'=>array(
+        'default_logger_driver'=>'Crontab\Logger\Driver\FileDriver',
+    ),
     'worker'=>array(
         'number'=>3,
     ),

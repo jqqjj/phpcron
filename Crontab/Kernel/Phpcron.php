@@ -3,9 +3,11 @@
 namespace Crontab\Kernel;
 
 use Crontab\Input\Argvs;
-use Crontab\Process\Master;
+use Crontab\Kernel\Master;
 use Crontab\Helper\DaemonManager;
-use Crontab\Logger\Terminal AS TerminalLogger;
+use Crontab\Logger\Driver\TerminalDriver;
+use Crontab\Logger\Container\Logger AS LoggerContainer;
+use Crontab\Exceptions\ExceptionHandler;
 
 class Phpcron
 {
@@ -29,7 +31,7 @@ class Phpcron
         exit(0);
     }
     
-    private static function _daemon($options)
+    private static function _daemon($cli_config)
     {
         $daemon = new DaemonManager();
         if(in_array('start',$cli_config))
@@ -52,12 +54,16 @@ class Phpcron
     
     private static function _terminal()
     {
-        $master = new Master(new TerminalLogger());
+        LoggerContainer::setDefaultDriver(new TerminalDriver());
+        $master = new Master();
         $master->run();
     }
 
     private static function _init()
     {
+        //set exception handler
+        set_exception_handler(array(new ExceptionHandler,'handler'));
+        
         if(php_sapi_name()!='cli')
         {
             exit("This Application must be started with cli mode.".PHP_EOL);

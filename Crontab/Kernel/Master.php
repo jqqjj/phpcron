@@ -1,11 +1,11 @@
 <?php
 
-namespace Crontab\Process;
+namespace Crontab\Kernel;
 
 use Crontab\Config\ConfigManager;
 use Crontab\Process\Worker;
 use Crontab\IO\SocketManager;
-use Crontab\Logger\LoggerInterface\LoggerInterface;
+use Crontab\Logger\Container\Logger AS LoggerContainer;
 
 /**
  * 目标：
@@ -20,28 +20,37 @@ class Master
     private $_command;
     private $_workers;
     private $_logger;
-    private $logger;
+    private $_socketManager;
 
-    public function __construct(LoggerInterface $logger)
+    public function __construct()
     {
-        $this->_logger = $logger;
+        $this->_logger = LoggerContainer::getDefaultDriver();
     }
     
     public function run()
     {
         $this->_command = 'waiting';
-        
+        throw new \Exception('test');
+        $this->_logger->log("can not initiating listener.");
         //register singal
         $this->_registerSignal();
         
         //listen task from networks
-        if(!$this->_listen())
+        if(!$this->_initListener())
         {
-            $this->_logger->log("can not create listener.");
+            $this->_logger->log("can not initiating listener.");
             exit();
         }
+        
+        /*
+        ob_start();
+        var_dump($this->_socketManager->getSocket());
+        $this->_logger->log(ob_get_clean());
+        */
+        
+        //$this->_socketManager->accept();
         //loop crontab tasks
-        $this->_loop();
+        //$this->_loop();
     }
     
     private function _loop()
@@ -183,13 +192,11 @@ class Master
         return $workers;
     }
     
-    private function _listen()
+    private function _initListener()
     {
-        $socketManager = new SocketManager();
-        
-        if($socketManager->generate() && $socketManager->set_block_mode(0))
+        $this->_socketManager = new SocketManager();
+        if($this->_socketManager->generate() && $this->_socketManager->set_block_mode(0))
         {
-            $this->_socket = $socketManager->getSocket();
             return TRUE;
         }
         else
@@ -200,12 +207,16 @@ class Master
     
     private function _registerSignal()
     {
-        //register exit signal(when receive a exit command)
+        //register master exit signal(when master receive a exit command)
         pcntl_signal(SIGHUP, array($this,'_signalHandler'));
         pcntl_signal(SIGINT, array($this,'_signalHandler'));
         pcntl_signal(SIGQUIT, array($this,'_signalHandler'));
         pcntl_signal(SIGTERM, array($this,'_signalHandler'));
-        //register children exit signal(task finish)
+        
+        //register worker finish signal
+        pcntl_signal(SIGUSR1, array($this,'_signalHandler'));
+        
+        //register worker exit signal(task finish)
         pcntl_signal(SIGCHLD, array($this,'_signalHandler'));
     }
     

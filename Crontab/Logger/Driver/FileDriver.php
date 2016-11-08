@@ -1,11 +1,11 @@
 <?php
 
-namespace Crontab\Logger;
+namespace Crontab\Logger\Driver;
 
 
 use Crontab\Logger\LoggerInterface\LoggerInterface;
 
-class LogFile implements LoggerInterface
+class FileDriver implements LoggerInterface
 {
     public function log($msg)
     {
