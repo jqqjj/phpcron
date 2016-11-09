@@ -2,12 +2,12 @@
 
 namespace Crontab\Logger\Driver;
 
-use Crontab\Logger\LoggerInterface\LoggerInterface;
+use Crontab\Logger\DriverInterface\DriverInterface;
 
-class TerminalDriver implements LoggerInterface
+class TerminalDriver implements DriverInterface
 {
     public function log($msg)
     {
-        echo date("Y-m-d H:i:s").':'.PHP_EOL.$msg.PHP_EOL;
+        echo date("Y/m/d H:i:s").':'.PHP_EOL.$msg.PHP_EOL;
     }
 }

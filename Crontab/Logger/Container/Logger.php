@@ -3,20 +3,20 @@
 
 namespace Crontab\Logger\Container;
 
-use Crontab\Logger\LoggerInterface\LoggerInterface;
+use Crontab\Logger\DriverInterface\DriverInterface;
 
 abstract class Logger
 {
     private static $_default_logger;
     
-    public static function setDefaultDriver(LoggerInterface $driver)
+    public static function setDefaultDriver(DriverInterface $driver)
     {
         self::$_default_logger = $driver;
     }
     
     public static function getDefaultDriver()
     {
-        if(!self::$_default_logger instanceof LoggerInterface)
+        if(!self::$_default_logger instanceof DriverInterface)
         {
             throw new \Exception("Default logger driver not set");
         }
@@ -25,6 +25,6 @@ abstract class Logger
     
     public static function hasDefaultDriver()
     {
-        return self::$_default_logger instanceof LoggerInterface;
+        return self::$_default_logger instanceof DriverInterface;
     }
 }

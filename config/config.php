@@ -12,10 +12,8 @@ return array(
         'pid_name'=>'phpcron.pid',
     ),
     'exception'=>array(
-        'default_logger_driver'=>'Crontab\Logger\Driver\FileDriver',
-    ),
-    'worker'=>array(
-        'number'=>3,
+        'run_log'=>'tmp/run_log.txt',
+        'error_log'=>'tmp/error.txt',
     ),
     'listen'=>array(
         'listen_port'=>6174,

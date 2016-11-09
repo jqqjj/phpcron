@@ -5,6 +5,8 @@ namespace Crontab\Kernel;
 use Crontab\Input\Argvs;
 use Crontab\Kernel\Master;
 use Crontab\Helper\DaemonManager;
+use Crontab\Logger\Driver\DebugDriver;
+use Crontab\Logger\Driver\ErrorDriver;
 use Crontab\Logger\Driver\TerminalDriver;
 use Crontab\Logger\Container\Logger AS LoggerContainer;
 use Crontab\Exceptions\ExceptionHandler;
@@ -54,19 +56,25 @@ class Phpcron
     
     private static function _terminal()
     {
+        //set the running log driver
         LoggerContainer::setDefaultDriver(new TerminalDriver());
+        //add an additional ExceptionHandler to show error in terminal
+        ExceptionHandler::addHandler(new TerminalDriver());
         $master = new Master();
         $master->run();
     }
 
     private static function _init()
     {
+        //add exception logger driver
+        ExceptionHandler::addHandler(new ErrorDriver());
         //set exception handler
-        set_exception_handler(array(new ExceptionHandler,'handler'));
+        set_exception_handler(array('Crontab\Exceptions\ExceptionHandler','handler'));
         
         if(php_sapi_name()!='cli')
         {
-            exit("This Application must be started with cli mode.".PHP_EOL);
+            echo 'This Application must be started with cli mode.'.PHP_EOL;
+            throw new \Exception('This Application must be started with cli mode.');
         }
     }
 }

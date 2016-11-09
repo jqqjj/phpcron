@@ -30,8 +30,8 @@ class Master
     public function run()
     {
         $this->_command = 'waiting';
-        throw new \Exception('test');
         $this->_logger->log("can not initiating listener.");
+        throw new \Exception('test');
         //register singal
         $this->_registerSignal();
         
