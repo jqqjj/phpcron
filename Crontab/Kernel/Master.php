@@ -31,6 +31,7 @@ class Master
     {
         $this->_command = 'waiting';
         $this->_logger->log("can not initiating listener.");
+        trigger_error('aaaa',E_USER_WARNING);
         throw new \Exception('test');
         //register singal
         $this->_registerSignal();
