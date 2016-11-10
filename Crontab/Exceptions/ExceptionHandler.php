@@ -14,11 +14,25 @@ class ExceptionHandler
         self::$_exception_log_driver[get_class($driver)] = $driver;
     }
     
-    public static function handler(\Exception $exception)
+    public static function handler()
     {
+        $exception = func_get_args();
         foreach (self::$_exception_log_driver AS $driver)
         {
-            $driver->log(self::_errorFormat($exception));
+            if(count($exception)==1 && $exception[0] instanceof \Exception)
+            {
+                $driver->log(self::_errorFormat($exception[0]));
+            }
+            elseif(count($exception)==5)
+            {
+                $message = 'Phpcron error(error code:'.$exception[0].'): ';
+                $message .= $exception[1] . " in ".$exception[2].":".$exception[3] . PHP_EOL;
+                $driver->log($message);
+            }
+            elseif(count($exception)==1)
+            {
+                $driver->log('Phpcron '.$exception[0]);
+            }
         }
     }
     

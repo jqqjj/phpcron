@@ -8,7 +8,6 @@ use Crontab\Helper\DaemonManager;
 use Crontab\Logger\Driver\DebugDriver;
 use Crontab\Logger\Driver\ErrorDriver;
 use Crontab\Logger\Driver\TerminalDriver;
-use Crontab\Exceptions\ErrorHandler;
 use Crontab\Exceptions\ExceptionHandler;
 use Crontab\Logger\Container\Logger AS LoggerContainer;
 
@@ -62,7 +61,6 @@ class Phpcron
         LoggerContainer::setDefaultDriver($terminal_driver);
         //add an additional ExceptionHandler to show error in terminal
         ExceptionHandler::addHandler($terminal_driver);
-        ErrorHandler::addHandler($terminal_driver);
         
         $master = new Master();
         $master->run();
@@ -72,10 +70,9 @@ class Phpcron
     {
         $error_driver = new ErrorDriver();
         //add exception logger driver
-        ErrorHandler::addHandler($error_driver);
         ExceptionHandler::addHandler($error_driver);
         //set exception handler
-        set_error_handler(array('Crontab\Exceptions\ErrorHandler','handler'));
+        set_error_handler(array('Crontab\Exceptions\ExceptionHandler','handler'));
         set_exception_handler(array('Crontab\Exceptions\ExceptionHandler','handler'));
         
         if(php_sapi_name()!='cli')
