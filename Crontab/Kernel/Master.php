@@ -16,7 +16,7 @@ use Crontab\Logger\Container\Logger AS LoggerContainer;
 
 class Master
 {
-    //waiting、addtask、taskexit、exit
+    //waiting、addtask、taskexit、masterexit、taskfinish
     private $_command;
     private $_workers;
     private $_logger;
@@ -30,9 +30,7 @@ class Master
     public function run()
     {
         $this->_command = 'waiting';
-        $this->_logger->log("can not initiating listener.");
-        trigger_error('aaaa',E_USER_WARNING);
-        throw new \Exception('test');
+        
         //register singal
         $this->_registerSignal();
         
@@ -83,22 +81,22 @@ class Master
     {
         switch ($signo)
         {
-            //exit handler
+            //master exit handler
             case SIGHUP:
             case SIGINT:
             case SIGQUIT:
             case SIGTERM:
-                $this->_command = 'taskexit';
+                $this->_command = 'masterexit';
                 break;
             
-            //reload handler
+            //task finish handler
             case SIGUSR1:
-                $this->_command = 'reloading';
+                $this->_command = 'taskfinish';
                 break;
             
-            //child crash handler
+            //task exit handler
             case SIGCHLD:
-                $this->_recoupWorkers();
+                $this->_command = 'taskexit';
                 
                 break;
             
@@ -208,16 +206,16 @@ class Master
     
     private function _registerSignal()
     {
-        //register master exit signal(when master receive a exit command)
+        //register master exit signal handler(when master receive a exit command)
         pcntl_signal(SIGHUP, array($this,'_signalHandler'));
         pcntl_signal(SIGINT, array($this,'_signalHandler'));
         pcntl_signal(SIGQUIT, array($this,'_signalHandler'));
         pcntl_signal(SIGTERM, array($this,'_signalHandler'));
         
-        //register worker finish signal
+        //register task finish signal handler
         pcntl_signal(SIGUSR1, array($this,'_signalHandler'));
         
-        //register worker exit signal(task finish)
+        //register task exit signal handler
         pcntl_signal(SIGCHLD, array($this,'_signalHandler'));
     }
     
