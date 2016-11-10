@@ -4,6 +4,7 @@
 namespace Crontab\IO;
 
 use Crontab\Config\ConfigManager;
+use Crontab\Logger\Container\Logger AS LoggerContainer;
 
 class SocketManager
 {
@@ -60,6 +61,7 @@ class SocketManager
         {
             return TRUE;
         }
+        LoggerContainer::getDefaultDriver()->log('generate socket');
         
         $address = ConfigManager::get('listen.listen_addr');
         $port = ConfigManager::get('listen.listen_port');

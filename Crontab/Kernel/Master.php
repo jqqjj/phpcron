@@ -20,15 +20,19 @@ class Master
     private $_command;
     private $_workers;
     private $_logger;
+    private $_connections;
     private $_socketManager;
 
     public function __construct()
     {
         $this->_logger = LoggerContainer::getDefaultDriver();
+        $this->_connections = array();
     }
     
     public function run()
     {
+        $this->_logger->log("Phpcron starts.");
+        
         $this->_command = 'waiting';
         
         //register singal
@@ -37,23 +41,41 @@ class Master
         //listen task from networks
         if(!$this->_initListener())
         {
-            $this->_logger->log("can not initiating listener.");
-            exit();
+            throw new \Exception('Starts failed by error "Can not initiating listener".');
         }
         
-        /*
-        ob_start();
-        var_dump($this->_socketManager->getSocket());
-        $this->_logger->log(ob_get_clean());
-        */
-        
-        //$this->_socketManager->accept();
         //loop crontab tasks
-        //$this->_loop();
+        $this->_loop();
     }
     
     private function _loop()
     {
+        while (TRUE)
+        {
+            $new_connection = FALSE;
+            $fd = $this->_socketManager->getSocket();
+            
+            //if receives a stop command,it will not accepts new connecitons.
+            if($this->_status != 'waiting')
+            {
+                $sockets = $this->_socketManager->select($this->_connections);
+            }
+            else
+            {
+                $sockets = $this->_socketManager->select(array_merge($this->_connections, array($fd)));
+            }
+            
+            //new connection handler
+            if(in_array($fd, $sockets))
+            {
+                $new_connection = $this->_socketManager->accept();
+            }
+            
+            if(!empty($new_connection))
+            {
+                $this->_connections[(int)$new_connection] = $new_connection;
+            }
+        }
         //loop until workers is empty
         while(!empty($this->_workers))
         {
@@ -105,92 +127,6 @@ class Master
         }
     }
     
-    /**
-     * reload signal handler
-     */
-    private function _reloadWorkers()
-    {
-        echo "starting reload workers.".PHP_EOL;
-        
-        if(!$this->_updateConfig())
-        {
-            echo "phpcron config is not correct when reloading".PHP_EOL;
-            return false;
-        }
-        
-        $new_workers = $this->_addWorkers(ConfigManager::get('worker.number'));
-        if(count($new_workers) != intval(ConfigManager::get('worker.number')))
-        {
-            $this->_killWorkers($new_workers);
-            echo "phpcron reloads fail".PHP_EOL;
-            return FALSE;
-        }
-        
-        $this->_killWorkers($this->_workers);
-        $this->_workers = $new_workers;
-        
-        echo "reloads workers success.".PHP_EOL;
-    }
-    
-    private function _recoupWorkers()
-    {
-        $status = NULL;
-        while(($pid=pcntl_waitpid(-1, $status, WNOHANG)) > 0)
-        {
-            $this->_workers = array_diff($this->_workers, array($pid));
-        }
-    }
-    
-    private function _autoMaintainWorkers()
-    {
-        $i = 0;
-        while(intval(ConfigManager::get('worker.number')) > count($this->_workers) && $i++<3)
-        {
-            $this->_workers = array_merge($this->_workers,$this->_addWorkers(intval(ConfigManager::get('worker.number')) - count($this->_workers)));
-        }
-        
-        if(count($this->_workers)!=intval(ConfigManager::get('worker.number')))
-        {
-            //resurrect worker error handler
-            echo "resurrect workers error.".PHP_EOL;
-        }
-    }
-
-    private function _addWorkers($worker_number)
-    {
-        if(!empty($worker_number) && intval($worker_number)>=1)
-        {
-            $worker_number = intval($worker_number);
-        }
-        else
-        {
-            $worker_number = 1;
-        }
-        
-        $workers = array();
-        for($i=0;$i<$worker_number;$i++)
-        {
-            $pid = pcntl_fork();
-            
-            if($pid==-1)
-            {
-                echo "ERROR ! Add worker fail.".PHP_EOL;
-            }
-            elseif($pid>0)
-            {
-                $workers[] = $pid;
-            }
-            else
-            {
-                $worker = new Worker($this->_socket);
-                $worker->run();
-                exit(getmypid());
-            }
-        }
-        
-        return $workers;
-    }
-    
     private function _initListener()
     {
         $this->_socketManager = new SocketManager();
@@ -217,43 +153,5 @@ class Master
         
         //register task exit signal handler
         pcntl_signal(SIGCHLD, array($this,'_signalHandler'));
-    }
-    
-    private function _killWorkers($workers)
-    {
-        while($worker = array_shift($workers))
-        {
-            $i = 0;
-            while(!posix_kill($worker, SIGTERM) && $i<3)
-            {
-                $i++;
-            }
-        }
-        
-        return TRUE;
-    }
-    
-    /**
-     * update the real-time config
-     * @return bool
-     */
-    private function _updateConfig()
-    {
-        $configManager = new ConfigManager();
-        $config = $configManager->getConfig();
-        
-        //reset config
-        $configManager->setConfig(NULL);
-        
-        if(preg_match('/^[1-9]\d*$/', ConfigManager::get('worker.number')) && ConfigManager::get('worker.number')>0)
-        {
-            return TRUE;
-        }
-        else
-        {
-            //recover config
-            $configManager->setConfig($config);
-            return FALSE;
-        }
     }
 }
