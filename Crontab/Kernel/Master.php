@@ -18,7 +18,7 @@ class Master
 {
     //waiting、addtask、taskexit、masterexit、taskfinish
     private $_command;
-    private $_workers;
+    private $_tasks;
     private $_logger;
     private $_connections;
     private $_socketManager;
@@ -27,6 +27,7 @@ class Master
     {
         $this->_logger = LoggerContainer::getDefaultDriver();
         $this->_connections = array();
+        $this->_tasks = array();
     }
     
     public function run()
@@ -46,54 +47,131 @@ class Master
         
         //loop crontab tasks
         $this->_loop();
+        
+        //exit log
+        $this->_logger->log("Phpcron normal exits.");
     }
     
     private function _loop()
     {
-        while (TRUE)
+        while ($this->_command == 'waiting' || !empty($this->_connections) || !empty($this->_tasks))
         {
-            $new_connection = FALSE;
-            $fd = $this->_socketManager->getSocket();
+            $this->_logger->log("Phpcron heartbeat.");
+            $this->_logger->log("command:".$this->_command);
+            $this->_logger->log("connections:".print_r($this->_connections,TRUE));
+            $this->_logger->log("tasks:".print_r($this->_tasks,TRUE));
             
-            //if receives a stop command,it will not accepts new connecitons.
-            if($this->_status != 'waiting')
-            {
-                $sockets = $this->_socketManager->select($this->_connections);
-            }
-            else
-            {
-                $sockets = $this->_socketManager->select(array_merge($this->_connections, array($fd)));
-            }
+            $this->_acceptNewConnection();
+            $this->_maintainConnections($this->_command == 'waiting' ? TRUE : FALSE);
+            $this->_socketsIO(array_filter($this->_connections));
             
-            //new connection handler
-            if(in_array($fd, $sockets))
-            {
-                $new_connection = $this->_socketManager->accept();
-            }
-            
-            if(!empty($new_connection))
-            {
-                $this->_connections[(int)$new_connection] = $new_connection;
-            }
-        }
-        //loop until workers is empty
-        while(!empty($this->_workers))
-        {
-            sleep(10);
             pcntl_signal_dispatch();
-            switch ($this->_status)
-            {
-                case 'exit':
-                    $this->_killWorkers($this->_workers);
-                    break;
-                case 'running':
-                    $this->_autoMaintainWorkers();
-                    break;
-            }
+        }
+    }
+    
+    private function _socketsIO(Array $sockets)
+    {
+        if(in_array($this->_socketManager->getSocket(), $sockets))
+        {
+            unset($sockets[array_search($this->_socketManager->getSocket(), $sockets)]);
         }
         
-        $this->_unHoldPidFile();
-        exit("phpcron exit normally.pid:".getmypid().PHP_EOL);
+        foreach ($sockets AS $socket)
+        {
+            $this->_IO($socket);
+        }
+    }
+    
+    private function _IO($socket)
+    {
+        //first read the content length
+        if(!isset($this->_stream[(int)$socket]) || $this->_stream[(int)$socket]<=0)
+        {
+            $data = $this->_socketManager->read($socket);
+            $matches_stream = array();$matches_command = array();
+            //close connection if header content is illegal
+            if(!preg_match('/\<stream\>([1-9]\d*)\<\/stream\>/', $data, $matches_stream) || !preg_match('/\<command\>[\w\-\_]+\<\/command\>/', $data,$matches_command))
+            {
+                $this->_closeSocket($socket);
+                return FALSE;
+            }
+            //close when write connection false
+            if(FALSE === socket_write($socket, "<stream>{$matches_stream[1]}</stream>\n"))
+            {
+                $this->_closeSocket($socket);
+                return FALSE;
+            }
+            //record the length of main content.
+            $this->_stream[(int)$socket] = $matches_stream[1];
+        }
+        //second read main content
+        else
+        {
+            $stream_length = $this->_stream[(int)$socket];
+            unset($this->_stream[(int)$socket]);
+            
+            $data = $this->_socketManager->read($socket,$stream_length,PHP_BINARY_READ);
+            if($data===FALSE)
+            {
+                $this->_closeSocket($socket);
+                return FALSE;
+            }
+            
+            if(FALSE === socket_write($socket, "<stream>".strlen($data)."</stream>\n"))
+            {
+                socket_close($socket);
+                unset($this->_connections[array_search($socket, $this->_connections)]);
+            }
+            
+            //add the mapped plugin task
+        }
+    }
+    
+    //accept new connection if allows
+    private function _acceptNewConnection()
+    {
+        $sockets = $this->_socketManager->select(array($this->_socketManager->getSocket()));
+        if(!empty($sockets))
+        {
+            $new_connection = $this->_socketManager->accept();
+        }
+        
+        if($this->_command != 'waiting')
+        {
+            socket_close($new_connection);
+        }
+        else
+        {
+            $this->_connections[(int)$new_connection] = $new_connection;
+        }
+    }
+    
+    //maintain the connections pool.
+    private function _maintainConnections($allow_new_connection)
+    {
+        $fd = $this->_socketManager->getSocket();
+        $sockets = $this->_socketManager->select(array_merge($this->_connections, array($fd)));
+        
+        //accept new connection
+        $new_connection = NULL;
+        if(in_array($fd, $sockets))
+        {
+            $this->_logger->log("Accept a new connection.");
+            $new_connection = $this->_socketManager->accept();
+        }
+        
+        //drop connection if not allow new connections,accpet.
+        if(!empty($new_connection) && $allow_new_connection !== TRUE)
+        {
+            $this->_logger->log("Reject the new connection.");
+            socket_close($new_connection);
+        }
+        //add the new connection to connections pool.
+        elseif(!empty ($new_connection))
+        {
+            $this->_logger->log("Add the new connection to the connections pool.");
+            $this->_connections[(int)$new_connection] = $new_connection;
+        }
     }
     
     /**
