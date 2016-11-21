@@ -16,11 +16,12 @@ use Crontab\Logger\Container\Logger AS LoggerContainer;
 
 class Master
 {
-    //waiting、addtask、taskexit、masterexit、taskfinish
-    private $_command;
     private $_tasks;
     private $_logger;
     private $_connections;
+    private $_stream;
+    //waiting、addtask、taskexit、masterexit、taskfinish
+    private $_command;
     private $_socketManager;
 
     public function __construct()
@@ -56,25 +57,29 @@ class Master
     {
         while ($this->_command == 'waiting' || !empty($this->_connections) || !empty($this->_tasks))
         {
-            $this->_logger->log("Phpcron heartbeat.");
+            /*$this->_logger->log("Phpcron heartbeat.");
             $this->_logger->log("command:".$this->_command);
+            $this->_logger->log("tasks:".print_r($this->_tasks,TRUE));*/
             $this->_logger->log("connections:".print_r($this->_connections,TRUE));
-            $this->_logger->log("tasks:".print_r($this->_tasks,TRUE));
             
             $this->_acceptNewConnection();
-            $this->_maintainConnections($this->_command == 'waiting' ? TRUE : FALSE);
-            $this->_socketsIO(array_filter($this->_connections));
+            $this->_socketsIO();
             
             pcntl_signal_dispatch();
         }
     }
     
-    private function _socketsIO(Array $sockets)
+    private function _socketsIO()
     {
-        if(in_array($this->_socketManager->getSocket(), $sockets))
+        $sockets = $this->_socketManager->select($this->_connections);
+        if(empty($sockets))
         {
-            unset($sockets[array_search($this->_socketManager->getSocket(), $sockets)]);
+            return;
         }
+        
+        ob_start();
+        var_dump($sockets);
+        $this->_logger->log("Ready sockets:". ob_get_clean());
         
         foreach ($sockets AS $socket)
         {
@@ -84,20 +89,30 @@ class Master
     
     private function _IO($socket)
     {
+        $this->_logger->log("Exchange data.");
         //first read the content length
         if(!isset($this->_stream[(int)$socket]) || $this->_stream[(int)$socket]<=0)
         {
             $data = $this->_socketManager->read($socket);
+            //data is false means that connection is reset.
+            if($data===FALSE)
+            {
+                $this->_logger->log("Broken socket.");
+                $this->_closeSocket($socket);
+                return FALSE;
+            }
             $matches_stream = array();$matches_command = array();
             //close connection if header content is illegal
             if(!preg_match('/\<stream\>([1-9]\d*)\<\/stream\>/', $data, $matches_stream) || !preg_match('/\<command\>[\w\-\_]+\<\/command\>/', $data,$matches_command))
             {
+                $this->_logger->log("Illegal stream len: ". $data);
                 $this->_closeSocket($socket);
                 return FALSE;
             }
             //close when write connection false
             if(FALSE === socket_write($socket, "<stream>{$matches_stream[1]}</stream>\n"))
             {
+                $this->_logger->log("Can't write back data.");
                 $this->_closeSocket($socket);
                 return FALSE;
             }
@@ -113,14 +128,15 @@ class Master
             $data = $this->_socketManager->read($socket,$stream_length,PHP_BINARY_READ);
             if($data===FALSE)
             {
+                $this->_logger->log("Can't read the main data.");
                 $this->_closeSocket($socket);
                 return FALSE;
             }
             
             if(FALSE === socket_write($socket, "<stream>".strlen($data)."</stream>\n"))
             {
-                socket_close($socket);
-                unset($this->_connections[array_search($socket, $this->_connections)]);
+                $this->_logger->log("Can't write back data.");
+                $this->_closeSocket($socket);
             }
             
             //add the mapped plugin task
@@ -131,45 +147,21 @@ class Master
     private function _acceptNewConnection()
     {
         $sockets = $this->_socketManager->select(array($this->_socketManager->getSocket()));
+        $new_connection = NULL;
         if(!empty($sockets))
         {
+            $this->_logger->log("New connection is ready.");
             $new_connection = $this->_socketManager->accept();
         }
         
-        if($this->_command != 'waiting')
+        if($this->_command != 'waiting' && $new_connection)
         {
-            socket_close($new_connection);
+            $this->_logger->log("Drop new connection.");
+            $this->_closeSocket($new_connection);
         }
-        else
+        elseif($new_connection)
         {
-            $this->_connections[(int)$new_connection] = $new_connection;
-        }
-    }
-    
-    //maintain the connections pool.
-    private function _maintainConnections($allow_new_connection)
-    {
-        $fd = $this->_socketManager->getSocket();
-        $sockets = $this->_socketManager->select(array_merge($this->_connections, array($fd)));
-        
-        //accept new connection
-        $new_connection = NULL;
-        if(in_array($fd, $sockets))
-        {
-            $this->_logger->log("Accept a new connection.");
-            $new_connection = $this->_socketManager->accept();
-        }
-        
-        //drop connection if not allow new connections,accpet.
-        if(!empty($new_connection) && $allow_new_connection !== TRUE)
-        {
-            $this->_logger->log("Reject the new connection.");
-            socket_close($new_connection);
-        }
-        //add the new connection to connections pool.
-        elseif(!empty ($new_connection))
-        {
-            $this->_logger->log("Add the new connection to the connections pool.");
+            $this->_logger->log("Add new connection to pool.");
             $this->_connections[(int)$new_connection] = $new_connection;
         }
     }
@@ -202,6 +194,15 @@ class Master
             
             default :
                 break;
+        }
+    }
+    
+    private function _closeSocket($socket)
+    {
+        socket_close($socket);
+        if(array_search($socket, $this->_connections))
+        {
+            unset($this->_connections[array_search($socket, $this->_connections)]);
         }
     }
     
