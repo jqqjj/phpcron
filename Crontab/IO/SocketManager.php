@@ -63,7 +63,6 @@ class SocketManager
         }
         LoggerContainer::getDefaultDriver()->log('generate socket');
         
-        $address = ConfigManager::get('listen.listen_addr');
         $port = ConfigManager::get('listen.listen_port');
         
         $this->_debug('prefix');
@@ -82,7 +81,7 @@ class SocketManager
                 throw new \Exception(socket_strerror(socket_last_error($socket)));
             }
             
-            if(!socket_bind($socket, $address, $port))
+            if(!socket_bind($socket, "0.0.0.0", $port))
             {
                 throw new \Exception(socket_strerror(socket_last_error($socket)));
             }

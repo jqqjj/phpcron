@@ -16,7 +16,7 @@ $str = "Hello,this is the socket test.";
 sleep(4);
 //send header
 echo date("Y/m/d H:i:s")." write 1 \n";
-socket_write($socket,"<command>-_-</command><stream>".strlen($str)."</stream>\n");
+socket_write($socket,"<task>echoTime</task><stream>".strlen($str)."</stream>\n");
 //receive the header back
 $header_back = socket_read($socket, 1024, PHP_NORMAL_READ);
 
