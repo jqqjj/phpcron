@@ -6,5 +6,5 @@ namespace Crontab\Task;
 
 interface TaskInterface
 {
-    public function work();
+    public function work(array $data);
 }

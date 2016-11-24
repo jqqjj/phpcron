@@ -1,24 +1,20 @@
 <?php
 
 
-namespace Crontab\Process;
+namespace Crontab\Kernel;
 
 use Crontab\Helper\RunnerBox;
+use Crontab\Logger\Container\Logger AS LoggerContainer;
 
 class Worker
 {
-    private $_task;
-    
-    public function __construct($task)
+    public function run($task,$data)
     {
-        $this->_task = $task;
-    }
-    
-    public function run()
-    {
+        LoggerContainer::getDefaultDriver()->log('runbox:'.$task);
         $runner = new RunnerBox();
-        return $runner->run(function(){
-            
+        return $runner->run(function() use ($task,$data){
+            $plugin = new $task;
+            $plugin->work($data);
         });
     }
 }

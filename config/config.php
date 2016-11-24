@@ -20,6 +20,9 @@ return array(
         'display_errors'=>FALSE,
     ),
     'plugins'=>array(
-        'echoTime'=>'TaskPlugin\EchoTime',
+        'echoTime'=>array(
+            'class'=>'TaskPlugin\EchoTime',
+            'autoStart'=>TRUE,
+        ),
     ),
 );

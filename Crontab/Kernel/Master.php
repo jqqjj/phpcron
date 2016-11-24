@@ -3,7 +3,7 @@
 namespace Crontab\Kernel;
 
 use Crontab\Config\ConfigManager;
-use Crontab\Process\Worker;
+use Crontab\Kernel\Worker;
 use Crontab\IO\SocketManager;
 use Crontab\Logger\Container\Logger AS LoggerContainer;
 
@@ -20,7 +20,7 @@ class Master
     private $_logger;
     private $_connections;
     private $_stream;
-    //waiting、addtask、taskexit、masterexit、taskfinish
+    //waiting、taskexit、masterexit
     private $_command;
     private $_socketManager;
     private $_plugins;
@@ -38,7 +38,7 @@ class Master
     {
         $this->_logger->log("Phpcron starts.");
         
-        $this->_command = 'waiting';
+        $this->_command = 'running';
         
         //register singal
         $this->_registerSignal();
@@ -49,6 +49,8 @@ class Master
             throw new \Exception('Starts failed by error "Can not initiating listener".');
         }
         
+        //load and start default tasks
+        
         //loop crontab tasks
         $this->_loop();
         
@@ -58,7 +60,7 @@ class Master
     
     private function _loop()
     {
-        while ($this->_command == 'waiting' || !empty($this->_connections) || !empty($this->_tasks))
+        while ($this->_command == 'running' || !empty($this->_connections) || !empty($this->_tasks))
         {
             $this->_processConnections();
             $this->_processTasks();
@@ -69,14 +71,17 @@ class Master
     
     private function _processTasks()
     {
-        foreach ($this->_stream AS $value)
+        foreach ($this->_stream AS $key=>$value)
         {
-            if($value['data']===NULL || !in_array($value['task'], $this->_plugins))
+            if($value['data']===NULL || !key_exists($value['task'], $this->_plugins))
             {
                 continue;
             }
             
-            $this->_tasks[] = new Worker($task);
+            $worker = new Worker();
+            $pid = $worker->run($this->_plugins[$value['task']]['class'],array('data'=>$value['data']));
+            $this->_tasks[$pid] = $value['task'];
+            unset($this->_stream[$key]);
         }
     }
     
@@ -166,14 +171,14 @@ class Master
         
         if($new_connection)
         {
-            if($this->_command != 'waiting')
+            $this->_logger->log("Receive a connection.");
+            if($this->_command != 'running')
             {
-                $this->_logger->log("Drop new connection.");
+                $this->_logger->log("Drop the new connection.");
                 $this->_closeSocket($new_connection);
             }
             else
             {
-                $this->_logger->log("Add new connection to pool.");
                 $this->_connections[(int)$new_connection] = $new_connection;
             }
         }
@@ -191,17 +196,24 @@ class Master
             case SIGINT:
             case SIGQUIT:
             case SIGTERM:
-                $this->_command = 'masterexit';
-                break;
-            
-            //task finish handler
-            case SIGUSR1:
-                $this->_command = 'taskfinish';
+                $this->_command = 'exit';
                 break;
             
             //task exit handler
             case SIGCHLD:
-                $this->_command = 'taskexit';
+                $status = NULL;
+                while(($pid=pcntl_waitpid(-1, $status, WNOHANG)) > 0)
+                {
+                    if(key_exists($pid, $this->_tasks))
+                    {
+                        trigger_error("Task <{$this->_tasks[$pid]}> crash exits.",E_USER_WARNING);
+                        unset($this->_tasks[$pid]);
+                    }
+                    else
+                    {
+                        
+                    }
+                }
                 
                 break;
             
