@@ -14,6 +14,7 @@ class EchoTime implements TaskInterface
 {
     public function work(array $data)
     {
+        sleep(30);
         file_put_contents('echotime.txt', date("Y-m-d H:i:s").'##'.$data['data'].PHP_EOL,FILE_APPEND);
     }
 }

@@ -19,7 +19,7 @@ class Master
     private $_tasks;
     private $_logger;
     private $_connections;
-    private $_stream;
+    private $_request;
     //waiting、taskexit、masterexit
     private $_command;
     private $_socketManager;
@@ -30,7 +30,7 @@ class Master
         $this->_logger = LoggerContainer::getDefaultDriver();
         $this->_connections = array();
         $this->_tasks = array();
-        $this->_stream = array();
+        $this->_request = array();
         $this->_plugins = ConfigManager::get('plugins');
     }
     
@@ -71,17 +71,30 @@ class Master
     
     private function _processTasks()
     {
-        foreach ($this->_stream AS $key=>$value)
+        foreach ($this->_request AS $key=>$value)
         {
-            if($value['data']===NULL || !key_exists($value['task'], $this->_plugins))
+            //task just will starts within a complete data.
+            if($value['data']===NULL)
             {
+                continue;
+            }
+            //drop request if task is running or task is not exists.
+            if(!key_exists($value['task'], $this->_plugins) || in_array($value['task'],array_column($this->_tasks, 'name')))
+            {
+                unset($this->_request[$key]);
                 continue;
             }
             
             $worker = new Worker();
             $pid = $worker->run($this->_plugins[$value['task']]['class'],array('data'=>$value['data']));
-            $this->_tasks[$pid] = $value['task'];
-            unset($this->_stream[$key]);
+            if($pid>0)
+            {
+                $this->_tasks[$pid] = array(
+                    'name'=>$value['task'],
+                    'instance'=>$worker,
+                );
+                unset($this->_request[$key]);
+            }
         }
     }
     
@@ -110,7 +123,7 @@ class Master
     private function _IO($socket)
     {
         //first read the content length
-        if(!isset($this->_stream[(int)$socket]) || !isset($this->_stream[(int)$socket]['length']) || $this->_stream[(int)$socket]['length']<=0)
+        if(!isset($this->_request[(int)$socket]) || !isset($this->_request[(int)$socket]['length']) || $this->_request[(int)$socket]['length']<=0)
         {
             $data = $this->_socketManager->read($socket);
             //data is false means that connection is reset.
@@ -136,14 +149,14 @@ class Master
                 return FALSE;
             }
             //record the length of main content.
-            $this->_stream[(int)$socket]['length'] = $matches_stream[1];
-            $this->_stream[(int)$socket]['task'] = $matches_command[1];
-            $this->_stream[(int)$socket]['data'] = NULL;
+            $this->_request[(int)$socket]['length'] = $matches_stream[1];
+            $this->_request[(int)$socket]['task'] = $matches_command[1];
+            $this->_request[(int)$socket]['data'] = NULL;
         }
         //second read main content
         else
         {
-            $stream_length = $this->_stream[(int)$socket]['length'];
+            $stream_length = $this->_request[(int)$socket]['length'];
             
             $data = $this->_socketManager->read($socket,$stream_length,PHP_BINARY_READ);
             if($data===FALSE)
@@ -152,9 +165,9 @@ class Master
                 $this->_closeSocket($socket);
                 return FALSE;
             }
-            if(!empty($data) && $this->_stream[(int)$socket]['data']===NULL)
+            if(!empty($data) && $this->_request[(int)$socket]['data']===NULL)
             {
-                $this->_stream[(int)$socket]['data'] = $data;
+                $this->_request[(int)$socket]['data'] = $data;
             }
             
             if(FALSE === socket_write($socket, "<stream>".strlen($data)."</stream>\n"))
@@ -206,12 +219,12 @@ class Master
                 {
                     if(key_exists($pid, $this->_tasks))
                     {
-                        trigger_error("Task <{$this->_tasks[$pid]}> crash exits.",E_USER_WARNING);
+                        trigger_error("Task <{$this->_tasks[$pid]['name']}> crash exits.",E_USER_WARNING);
                         unset($this->_tasks[$pid]);
                     }
                     else
                     {
-                        
+                        $this->_logger->log("Task normal exits.");
                     }
                 }
                 
@@ -224,11 +237,15 @@ class Master
     
     private function _closeSocket($socket)
     {
-        socket_close($socket);
         if(array_search($socket, $this->_connections))
         {
             unset($this->_connections[array_search($socket, $this->_connections)]);
         }
+        if(isset($this->_request[(int)$socket]))
+        {
+            unset($this->_request[(int)$socket]);
+        }
+        socket_close($socket);
     }
     
     private function _initListener()
