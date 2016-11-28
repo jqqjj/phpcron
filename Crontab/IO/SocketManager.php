@@ -164,7 +164,7 @@ class SocketManager
         $except=NULL;
         if(empty($read) || FALSE===socket_select($read, $write, $except, 3))
         {
-            //here you will get Success by using socket_last_error function to get the error.
+            //here you will get Success by using socket_last_error to get the error when socket_select return false.
             $result = array();
         }
         else

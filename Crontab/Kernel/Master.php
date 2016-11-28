@@ -20,8 +20,8 @@ class Master
     private $_logger;
     private $_connections;
     private $_request;
-    //waiting、taskexit、masterexit
-    private $_command;
+    //running、exit
+    private $_status;
     private $_socketManager;
     private $_plugins;
 
@@ -38,7 +38,7 @@ class Master
     {
         $this->_logger->log("Phpcron starts.");
         
-        $this->_command = 'running';
+        $this->_status = 'running';
         
         //register singal
         $this->_registerSignal();
@@ -60,7 +60,7 @@ class Master
     
     private function _loop()
     {
-        while ($this->_command == 'running' || !empty($this->_connections) || !empty($this->_tasks))
+        while ($this->_status == 'running' || !empty($this->_connections) || !empty($this->_tasks))
         {
             $this->_processConnections();
             $this->_processTasks();
@@ -149,9 +149,12 @@ class Master
                 return FALSE;
             }
             //record the length of main content.
-            $this->_request[(int)$socket]['length'] = $matches_stream[1];
-            $this->_request[(int)$socket]['task'] = $matches_command[1];
-            $this->_request[(int)$socket]['data'] = NULL;
+            $this->_request[(int)$socket] = array(
+                'length'=>$matches_stream[1],
+                'task'=>$matches_command[1],
+                'data'=>NULL,
+                'mtime'=>time(),
+            );
         }
         //second read main content
         else
@@ -168,6 +171,7 @@ class Master
             if(!empty($data) && $this->_request[(int)$socket]['data']===NULL)
             {
                 $this->_request[(int)$socket]['data'] = $data;
+                $this->_request[(int)$socket]['mtime'] = time();
             }
             
             if(FALSE === socket_write($socket, "<stream>".strlen($data)."</stream>\n"))
@@ -184,8 +188,8 @@ class Master
         
         if($new_connection)
         {
-            $this->_logger->log("Receive a connection.");
-            if($this->_command != 'running')
+            $this->_logger->log("Receive a new connection.");
+            if($this->_status != 'running')
             {
                 $this->_logger->log("Drop the new connection.");
                 $this->_closeSocket($new_connection);
@@ -193,6 +197,12 @@ class Master
             else
             {
                 $this->_connections[(int)$new_connection] = $new_connection;
+                $this->_request[(int)$new_connection] = array(
+                    'length'=>0,
+                    'task'=>'',
+                    'data'=>NULL,
+                    'mtime'=>time(),
+                );
             }
         }
     }
@@ -209,7 +219,7 @@ class Master
             case SIGINT:
             case SIGQUIT:
             case SIGTERM:
-                $this->_command = 'exit';
+                $this->_status = 'exit';
                 break;
             
             //task exit handler
