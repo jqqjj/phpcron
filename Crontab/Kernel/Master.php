@@ -63,6 +63,7 @@ class Master
         while ($this->_status == 'running' || !empty($this->_connections) || !empty($this->_tasks))
         {
             $this->_processConnections();
+            $this->_dropTimeoutConnections();
             $this->_processTasks();
             
             pcntl_signal_dispatch();
@@ -191,7 +192,7 @@ class Master
             $this->_logger->log("Receive a new connection.");
             if($this->_status != 'running')
             {
-                $this->_logger->log("Drop the new connection.");
+                $this->_logger->log("Drop the new connection without running.");
                 $this->_closeSocket($new_connection);
             }
             else
@@ -203,6 +204,18 @@ class Master
                     'data'=>NULL,
                     'mtime'=>time(),
                 );
+            }
+        }
+    }
+    
+    private function _dropTimeoutConnections()
+    {
+        foreach ($this->_request AS $key=>$value)
+        {
+            if($value['mtime']+6<=time() && isset($this->_connections[$key]))
+            {
+                $this->_logger->log("Drop timeout connection,connection ID:".$key);
+                $this->_closeSocket($this->_connections[$key]);
             }
         }
     }
