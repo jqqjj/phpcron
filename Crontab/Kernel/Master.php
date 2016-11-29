@@ -60,12 +60,20 @@ class Master
     
     private function _loop()
     {
-        while ($this->_status == 'running' || !empty($this->_connections) || !empty($this->_tasks))
+        while($this->_status == 'running' || ($this->_status == 'exit'&&!empty($this->_tasks)) )
         {
-            $this->_processConnections();
-            $this->_dropTimeoutConnections();
-            $this->_processTasks();
-            
+            if($this->_status == 'exit')
+            {
+                $this->_killTasks();
+                $this->_dropAllConnections();
+                sleep(1);
+            }
+            elseif($this->_status == 'running')
+            {
+                $this->_processConnections();
+                $this->_dropTimeoutConnections();
+                $this->_processTasks();
+            }
             pcntl_signal_dispatch();
         }
     }
@@ -220,6 +228,27 @@ class Master
         }
     }
     
+    private function _killTasks()
+    {
+        foreach ($this->_tasks AS $key=>$value)
+        {
+            posix_kill($key, SIGTERM);
+            $this->_tasks[$key]['sign'] = TRUE;
+        }
+    }
+    
+    private function _dropAllConnections()
+    {
+        foreach ($this->_request AS $key=>$value)
+        {
+            unset($this->_request[$key]);
+        }
+        foreach ($this->_connections AS $key=>$value)
+        {
+            unset($this->_request[$key]);
+        }
+    }
+    
     /**
      * exit signal handler
      */
@@ -240,15 +269,20 @@ class Master
                 $status = NULL;
                 while(($pid=pcntl_waitpid(-1, $status, WNOHANG)) > 0)
                 {
-                    if(key_exists($pid, $this->_tasks))
+                    if(!key_exists($pid, $this->_tasks))
                     {
-                        trigger_error("Task <{$this->_tasks[$pid]['name']}> crash exits.",E_USER_WARNING);
-                        unset($this->_tasks[$pid]);
+                        continue;
+                    }
+                    
+                    if(isset($this->_tasks[$pid]['sign']) && !empty($this->_tasks[$pid]['sign']))
+                    {
+                        $this->_logger->log("Task <{$this->_tasks[$pid]['name']}> normal exits.");
                     }
                     else
                     {
-                        $this->_logger->log("Task normal exits.");
+                        trigger_error("Task <{$this->_tasks[$pid]['name']}> crash exits.",E_USER_WARNING);
                     }
+                    unset($this->_tasks[$pid]);
                 }
                 
                 break;
