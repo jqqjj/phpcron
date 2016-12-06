@@ -239,13 +239,9 @@ class Master
     
     private function _dropAllConnections()
     {
-        foreach ($this->_request AS $key=>$value)
+        foreach ($this->_connections AS $socket)
         {
-            unset($this->_request[$key]);
-        }
-        foreach ($this->_connections AS $key=>$value)
-        {
-            unset($this->_request[$key]);
+            $this->_closeSocket($socket);
         }
     }
     
