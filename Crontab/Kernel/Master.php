@@ -6,6 +6,7 @@ use Crontab\Config\ConfigManager;
 use Crontab\Kernel\Worker;
 use Crontab\IO\SocketManager;
 use Crontab\Logger\Container\Logger AS LoggerContainer;
+use Crontab\Helper\RunnerBox;
 
 /**
  * 目标：
@@ -94,13 +95,19 @@ class Master
                 continue;
             }
             
-            $worker = new Worker();
-            $pid = $worker->run($this->_plugins[$value['task']]['class'],array('data'=>$value['data']));
+            $task = $this->_plugins[$value['task']]['class'];
+            $data = array('data'=>$value['data']);
+            
+            $runnerBox = new RunnerBox();
+            $pid = $runnerBox->run(function() use ($task,$data){
+                $worker = new Worker($task,$data);
+                $worker->run();
+            });
+            
             if($pid>0)
             {
                 $this->_tasks[$pid] = array(
                     'name'=>$value['task'],
-                    'instance'=>$worker,
                 );
                 unset($this->_request[$key]);
             }
