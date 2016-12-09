@@ -18,6 +18,20 @@ class TaskRule
     public function verify()
     {
         $rules = $this->_splitRule();
+        if(!in_array(count($rules),array(5,6)))
+        {
+            return FALSE;
+        }
+        
+        switch (count($rules))
+        {
+            case 5:
+                break;
+            case 6:
+                break;
+            default :
+                return FALSE;
+        }
         
         LoggerContainer::getDefaultDriver()->log('rules:'.print_r($rules,TRUE));
         
