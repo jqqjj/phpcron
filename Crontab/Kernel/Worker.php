@@ -9,13 +9,16 @@ use Crontab\Helper\TaskRule;
 
 class Worker
 {
+    private $_parent_id;
     private $_task;
     private $_params;
     private $_status;
     private $_instance;
+    private $_history = array();
     
-    public function __construct($name,Array $params=array())
+    public function __construct($name,$parent_id,Array $params=array())
     {
+        $this->_parent_id = $parent_id;
         $this->_task = $name;
         $this->_status = NULL;
         $this->_instance = NULL;
@@ -46,12 +49,32 @@ class Worker
         }
         
         LoggerContainer::getDefaultDriver()->log("Task {$this->_task} starts.");
+        $this->_instance->onStart($this->_params);
         
         while ($this->_status=='running')
         {
-            sleep(10);
+            $now = time();
+            $nextWorkTime = $taskRule->getNextWorkTime();
+            if(in_array($nextWorkTime, $this->_history) || $now<$nextWorkTime)
+            {
+                continue;
+            }
+            if($this->_instance->canWork())
+            {
+                $this->_instance->onWork();
+                array_unshift($this->_history, $nextWorkTime);
+                $this->_history = array_slice($this->_history, 0, 50);
+            }
+            else
+            {
+                posix_kill($this->_parent_id, SIGCHLD);
+            }
+            
+            sleep($nextWorkTime-$now);
             pcntl_signal_dispatch();
         }
+        
+        $this->_instance->onStop();
     }
     
     private function _init()

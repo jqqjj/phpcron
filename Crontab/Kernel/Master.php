@@ -97,10 +97,11 @@ class Master
             
             $task = $this->_plugins[$value['task']]['class'];
             $data = array('data'=>$value['data']);
+            $parent_id = getmypid();
             
             $runnerBox = new RunnerBox();
-            $pid = $runnerBox->run(function() use ($task,$data){
-                $worker = new Worker($task,$data);
+            $pid = $runnerBox->run(function() use ($task,$data,$parent_id){
+                $worker = new Worker($task,$parent_id,$data);
                 $worker->run();
             });
             

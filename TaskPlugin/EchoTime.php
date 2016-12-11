@@ -21,7 +21,7 @@ class EchoTime implements TaskInterface
     
     public function getConfig()
     {
-        return "* * * * * *";
+        return "0-30/6,* * * * * *";
     }
     
     public function onStart(array $data)
@@ -36,7 +36,6 @@ class EchoTime implements TaskInterface
     
     public function onWork()
     {
-        sleep(30);
         file_put_contents('echotime.txt', date("Y-m-d H:i:s").'##'.$this->_params['data'].PHP_EOL,FILE_APPEND);
     }
 }
