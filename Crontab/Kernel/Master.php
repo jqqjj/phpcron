@@ -98,6 +98,7 @@ class Master
             $task = $this->_plugins[$value['task']]['class'];
             $data = array('data'=>$value['data']);
             $parent_id = getmypid();
+            $this->_logger->log("Master pid:".$parent_id);
             
             $runnerBox = new RunnerBox();
             $pid = $runnerBox->run(function() use ($task,$data,$parent_id){
@@ -240,7 +241,8 @@ class Master
     {
         foreach ($this->_tasks AS $key=>$value)
         {
-            posix_kill($key, SIGTERM);
+            $this->_logger->log("Master kill worker:".$key);
+            posix_kill($key, SIGUSR1);
             $this->_tasks[$key]['sign'] = TRUE;
         }
     }
@@ -270,6 +272,7 @@ class Master
             
             //task exit handler
             case SIGCHLD:
+                $this->_logger->log("Master retrieve worker.");
                 $status = NULL;
                 while(($pid=pcntl_waitpid(-1, $status, WNOHANG)) > 0)
                 {

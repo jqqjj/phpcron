@@ -53,24 +53,28 @@ class Worker
         
         while ($this->_status=='running')
         {
+            LoggerContainer::getDefaultDriver()->log("Worker heartbeat.");
             $now = time();
-            $nextWorkTime = $taskRule->getNextWorkTime();
-            if(in_array($nextWorkTime, $this->_history) || $now<$nextWorkTime)
+            $nextWorkTime = $taskRule->getNextWorkTime($now);
+            if(!in_array($nextWorkTime, $this->_history) && $now>=$nextWorkTime)
             {
-                continue;
-            }
-            if($this->_instance->canWork())
-            {
-                $this->_instance->onWork();
-                array_unshift($this->_history, $nextWorkTime);
-                $this->_history = array_slice($this->_history, 0, 50);
+                if($this->_instance->canWork())
+                {
+                    $this->_instance->onWork();
+                    array_unshift($this->_history, $nextWorkTime);
+                    $this->_history = array_slice($this->_history, 0, 50);
+                }
+                else
+                {
+                    LoggerContainer::getDefaultDriver()->log("Send self exit signal:".$this->_parent_id);
+                    posix_kill($this->_parent_id, SIGCHLD);
+                }
             }
             else
             {
-                posix_kill($this->_parent_id, SIGCHLD);
+                sleep($nextWorkTime-$now);
             }
             
-            sleep($nextWorkTime-$now);
             pcntl_signal_dispatch();
         }
         
@@ -89,6 +93,7 @@ class Worker
         pcntl_signal(SIGINT, array($this,'_signalHandler'));
         pcntl_signal(SIGQUIT, array($this,'_signalHandler'));
         pcntl_signal(SIGTERM, array($this,'_signalHandler'));
+        pcntl_signal(SIGUSR1, array($this,'_signalHandler'));
     }
     
     private function _signalHandler($signo)
@@ -99,6 +104,10 @@ class Worker
             case SIGINT:
             case SIGQUIT:
             case SIGTERM:
+                LoggerContainer::getDefaultDriver()->log("Worker reject exit from the default signal.");
+                break;
+            case SIGUSR1:
+                LoggerContainer::getDefaultDriver()->log("Worker receive exit signal from master,worker pid:".  getmypid());
                 $this->_status = 'exit';
                 break;
             

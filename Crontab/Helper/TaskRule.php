@@ -15,9 +15,9 @@ class TaskRule
         $this->_rule = $rule;
     }
     
-    public function getNextWorkTime()
+    public function getNextWorkTime($time)
     {
-        return time()+10;
+        return $time+10;
     }
     
     public function verify()
@@ -63,18 +63,9 @@ class TaskRule
     
     private function _verifySecond($rule)
     {
-        $pieces = preg_split('/\,/', '20-30/2,*/3,30-40/5');
-        #$pieces = preg_split('/\,/', $rule);
-        if(empty($pieces))
-        {
-            return FALSE;
-        }
-        foreach ($pieces AS $value)
-        {
-            
-        }
+        $points = $this->_getRulePoints($rule, 0, 59);
         
-        LoggerContainer::getDefaultDriver()->log(print_r($pieces,true));
+        LoggerContainer::getDefaultDriver()->log(print_r($points,true));
         return TRUE;
     }
     private function _verifyMinute($rule)
@@ -96,5 +87,20 @@ class TaskRule
     private function _verifyWeek($rule)
     {
         return TRUE;
+    }
+    
+    private function _getRulePoints($rule, $min, $max)
+    {
+        $points = array_fill(0, 60, FALSE);return $points;
+        $items = preg_split('/\,/', '20-30/2,*/3,30-40/5');
+        #$items = preg_split('/\,/', $rule);
+        if(empty($items))
+        {
+            return FALSE;
+        }
+        foreach ($items AS $item)
+        {
+            $pieces = preg_split('/^\/$/', $item);
+        }
     }
 }
