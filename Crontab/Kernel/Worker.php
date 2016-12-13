@@ -9,16 +9,14 @@ use Crontab\Helper\TaskRule;
 
 class Worker
 {
-    private $_parent_id;
     private $_task;
     private $_params;
     private $_status;
     private $_instance;
     private $_history = array();
     
-    public function __construct($name,$parent_id,Array $params=array())
+    public function __construct($name,Array $params=array())
     {
-        $this->_parent_id = $parent_id;
         $this->_task = $name;
         $this->_status = NULL;
         $this->_instance = NULL;
@@ -66,8 +64,8 @@ class Worker
                 }
                 else
                 {
-                    LoggerContainer::getDefaultDriver()->log("Send self exit signal:".$this->_parent_id);
-                    posix_kill($this->_parent_id, SIGCHLD);
+                    LoggerContainer::getDefaultDriver()->log("Task idioctonia.");
+                    posix_kill(getmypid(), SIGUSR2);
                 }
             }
             else
@@ -93,24 +91,22 @@ class Worker
         pcntl_signal(SIGINT, array($this,'_signalHandler'));
         pcntl_signal(SIGQUIT, array($this,'_signalHandler'));
         pcntl_signal(SIGTERM, array($this,'_signalHandler'));
-        pcntl_signal(SIGUSR1, array($this,'_signalHandler'));
+        pcntl_signal(SIGUSR2, array($this,'_signalHandler'));
     }
     
     private function _signalHandler($signo)
     {
         switch ($signo)
         {
+            case SIGUSR2:
+                LoggerContainer::getDefaultDriver()->log("Worker receive exit signal,worker pid:".  getmypid());
+                $this->_status = 'exit';
+                break;
+            
             case SIGHUP:
             case SIGINT:
             case SIGQUIT:
             case SIGTERM:
-                LoggerContainer::getDefaultDriver()->log("Worker reject exit from the default signal.");
-                break;
-            case SIGUSR1:
-                LoggerContainer::getDefaultDriver()->log("Worker receive exit signal from master,worker pid:".  getmypid());
-                $this->_status = 'exit';
-                break;
-            
             default :
                 break;
         }

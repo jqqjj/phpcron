@@ -97,12 +97,10 @@ class Master
             
             $task = $this->_plugins[$value['task']]['class'];
             $data = array('data'=>$value['data']);
-            $parent_id = getmypid();
-            $this->_logger->log("Master pid:".$parent_id);
             
             $runnerBox = new RunnerBox();
-            $pid = $runnerBox->run(function() use ($task,$data,$parent_id){
-                $worker = new Worker($task,$parent_id,$data);
+            $pid = $runnerBox->run(function() use ($task,$data){
+                $worker = new Worker($task,$data);
                 $worker->run();
             });
             
@@ -118,7 +116,9 @@ class Master
     
     private function _processConnections()
     {
+        pcntl_sigprocmask(SIG_BLOCK, array(SIGHUP,SIGINT,SIGQUIT,SIGTERM,SIGUSR1,SIGCHLD));//block signal
         $sockets = $this->_socketManager->select( array_merge($this->_connections,array($this->_socketManager->getSocket())) );
+        pcntl_sigprocmask(SIG_SETMASK, array());//unblock signal
         
         if(empty($sockets))
         {
@@ -242,8 +242,7 @@ class Master
         foreach ($this->_tasks AS $key=>$value)
         {
             $this->_logger->log("Master kill worker:".$key);
-            posix_kill($key, SIGUSR1);
-            $this->_tasks[$key]['sign'] = TRUE;
+            posix_kill($key, SIGUSR2);
         }
     }
     
@@ -281,13 +280,13 @@ class Master
                         continue;
                     }
                     
-                    if(isset($this->_tasks[$pid]['sign']) && !empty($this->_tasks[$pid]['sign']))
+                    if(pcntl_wifsignaled($status))
                     {
-                        $this->_logger->log("Task <{$this->_tasks[$pid]['name']}> normal exits.");
+                        trigger_error("Task <{$this->_tasks[$pid]['name']}> crash exits.",E_USER_WARNING);
                     }
                     else
                     {
-                        trigger_error("Task <{$this->_tasks[$pid]['name']}> crash exits.",E_USER_WARNING);
+                        $this->_logger->log("Task <{$this->_tasks[$pid]['name']}> normal exits.");
                     }
                     unset($this->_tasks[$pid]);
                 }
@@ -332,9 +331,6 @@ class Master
         pcntl_signal(SIGINT, array($this,'_signalHandler'));
         pcntl_signal(SIGQUIT, array($this,'_signalHandler'));
         pcntl_signal(SIGTERM, array($this,'_signalHandler'));
-        
-        //register task finish signal handler
-        pcntl_signal(SIGUSR1, array($this,'_signalHandler'));
         
         //register task exit signal handler
         pcntl_signal(SIGCHLD, array($this,'_signalHandler'));
