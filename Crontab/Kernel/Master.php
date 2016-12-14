@@ -41,9 +41,6 @@ class Master
         
         $this->_status = 'running';
         
-        //register singal
-        $this->_registerSignal();
-        
         //listen task from networks
         if(!$this->_initListener())
         {
@@ -52,6 +49,9 @@ class Master
         
         //load and start default tasks
         $this->_loadTasks();
+        
+        //register singal
+        $this->_registerSignal();
         
         //loop crontab tasks
         $this->_loop();
@@ -74,13 +74,13 @@ class Master
             {
                 $this->_processConnections();
                 $this->_dropTimeoutConnections();
-                $this->_processTasks();
+                $this->_processRequest();
             }
             pcntl_signal_dispatch();
         }
     }
     
-    private function _processTasks()
+    private function _processRequest()
     {
         foreach ($this->_request AS $key=>$value)
         {

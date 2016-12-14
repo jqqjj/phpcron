@@ -89,18 +89,69 @@ class TaskRule
         return TRUE;
     }
     
+    /**
+     * 
+     * @param type $rule
+     * @param type $min
+     * @param type $max
+     */
     private function _getRulePoints($rule, $min, $max)
     {
-        $points = array_fill(0, 60, FALSE);return $points;
-        $items = preg_split('/\,/', '20-30/2,*/3,30-40/5');
-        #$items = preg_split('/\,/', $rule);
-        if(empty($items))
+        $points = range($min, $max);
+        $cal_points = array();
+        
+        #item: x-y/z
+        foreach (split(',', $rule) AS $item)
+        {
+            $rs = $this->_parseRuleItem($item, $min, $max);
+            if(!is_array($rs))
+            {
+                return FALSE;
+            }
+            $cal_points = array_merge($cal_points,$rs);
+        }
+        
+        if(array_diff($cal_points, $points))
         {
             return FALSE;
         }
-        foreach ($items AS $item)
+        else
         {
-            $pieces = preg_split('/^\/$/', $item);
+            return $cal_points;
         }
+    }
+    
+    /**
+     * 暂时还未考虑到*号的情况
+     * @param type $item
+     * @param type $min
+     * @param type $max
+     * @return boolean|array
+     */
+    private function _parseRuleItem($item,$min,$max)
+    {
+        $spit = split('/', $item);
+        $limit = split('-', $spit[0]);
+        if(isset($spit[1]) && (intval($spit[1])<=0 || intval($spit[1])>$max))
+        {
+            return FALSE;
+        }
+        if( intval($limit[0])>$max || ( isset($limit[1]) && intval($limit[1])<=intval($limit[0]) ) || ( isset($limit[1]) && intval($limit[1])>$max ))
+        {
+            return FALSE;
+        }
+        
+        $interval = isset($spit[1]) ? intval($spit[1]) : 1;
+        $range_min = intval($limit[0]);
+        $range_max = isset($limit[1]) ? intval($limit[1]) : intval($limit[0]);
+        
+        $walker = $range_min;
+        $range = array();
+        do{
+            array_push($range, $walker);
+            $walker += $interval;
+        }while($walker<=$range_max);
+        
+        return $range;
     }
 }
