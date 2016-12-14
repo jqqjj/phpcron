@@ -22,7 +22,7 @@ return array(
     'plugins'=>array(
         'echoTime'=>array(
             'class'=>'TaskPlugin\EchoTime',
-            'autoStart'=>TRUE,
+            'enabled'=>TRUE,
         ),
     ),
 );

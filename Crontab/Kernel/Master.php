@@ -51,6 +51,7 @@ class Master
         }
         
         //load and start default tasks
+        $this->_loadTasks();
         
         //loop crontab tasks
         $this->_loop();
@@ -95,20 +96,8 @@ class Master
                 continue;
             }
             
-            $task = $this->_plugins[$value['task']]['class'];
-            $data = array('data'=>$value['data']);
-            
-            $runnerBox = new RunnerBox();
-            $pid = $runnerBox->run(function() use ($task,$data){
-                $worker = new Worker($task,$data);
-                $worker->run();
-            });
-            
-            if($pid>0)
+            if($this->_runTask($value['task'], $this->_plugins[$value['task']]['class']))
             {
-                $this->_tasks[$pid] = array(
-                    'name'=>$value['task'],
-                );
                 unset($this->_request[$key]);
             }
         }
@@ -222,6 +211,43 @@ class Master
                     'mtime'=>time(),
                 );
             }
+        }
+    }
+    
+    private function _loadTasks()
+    {
+        foreach ($this->_plugins AS $key=>$value)
+        {
+            if(!empty($value['enabled']))
+            {
+                $this->_runTask($key, $value['class']);
+            }
+        }
+    }
+    
+    private function _runTask($task,$taskClass)
+    {
+        if(in_array($task,  array_column($this->_tasks, 'name')))
+        {
+            $this->_logger->log("Task <{$task}> is already running.");
+            return FALSE;
+        }
+        
+        $runnerBox = new RunnerBox();
+        $pid = $runnerBox->run(function() use ($taskClass){
+            $worker = new Worker($taskClass);
+            $worker->run();
+        });
+        
+        if($pid>0)
+        {
+            $this->_tasks[$pid] = array(
+                'name'=>$task,
+            );
+            return $pid;
+        }else
+        {
+            return FALSE;
         }
     }
     
