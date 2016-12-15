@@ -165,13 +165,15 @@ class TaskRule
             $cal_points = array_merge($cal_points,$rs);
         }
         
+        sort($cal_points);
+        
         if(array_diff($cal_points, $points))
         {
             return FALSE;
         }
         else
         {
-            return $cal_points;
+            return array_values(array_unique($cal_points));
         }
     }
     
