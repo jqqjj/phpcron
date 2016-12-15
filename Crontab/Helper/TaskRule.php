@@ -9,10 +9,19 @@ use Crontab\Logger\Container\Logger AS LoggerContainer;
 class TaskRule
 {
     private $_rule;
+    private $_range=array();
     
     public function __construct($rule)
     {
         $this->_rule = $rule;
+        $this->_range = array(
+            'second'=>array(),
+            'minute'=>array(),
+            'hour'=>array(),
+            'day'=>array(),
+            'month'=>array(),
+            'week'=>array(),
+        );
     }
     
     public function getNextWorkTime($time)
@@ -30,7 +39,7 @@ class TaskRule
         
         foreach ($rules AS $value)
         {
-            if(!preg_match('/^(((\d{1,2}\-\d{1,2})(\/\d{1,2})?)|((\*(\/\d{1,2})?)|\d{1,2}))(\,(((\d{1,2}\-\d{1,2})(\/\d{1,2})?)|((\*(\/\d{1,2})?)|\d{1,2})))*/', $value))
+            if(!preg_match('/^(((\d{1,2}\-\d{1,2})(\/\d{1,2})?)|((\*(\/\d{1,2})?)|\d{1,2}))(\,(((\d{1,2}\-\d{1,2})(\/\d{1,2})?)|((\*(\/\d{1,2})?)|\d{1,2})))*$/', $value))
             {
                 return FALSE;
             }
@@ -56,7 +65,7 @@ class TaskRule
                 return FALSE;
         }
         
-        
+        LoggerContainer::getDefaultDriver()->log(print_r($this->_range,true));
         
         return TRUE;
     }
@@ -64,28 +73,73 @@ class TaskRule
     private function _verifySecond($rule)
     {
         $points = $this->_getRulePoints($rule, 0, 59);
+        if($points===FALSE)
+        {
+            return FALSE;
+        }
         
-        LoggerContainer::getDefaultDriver()->log(print_r($points,true));
+        $this->_range['second'] = $points;
+        
         return TRUE;
     }
     private function _verifyMinute($rule)
     {
+        $points = $this->_getRulePoints($rule, 0, 59);
+        if($points===FALSE)
+        {
+            return FALSE;
+        }
+        
+        $this->_range['minute'] = $points;
+        
         return TRUE;
     }
     private function _verifyHour($rule)
     {
+        $points = $this->_getRulePoints($rule, 0, 23);
+        if($points===FALSE)
+        {
+            return FALSE;
+        }
+        
+        $this->_range['hour'] = $points;
+        
         return TRUE;
     }
     private function _verifyDay($rule)
     {
+        $points = $this->_getRulePoints($rule, 1, 31);
+        if($points===FALSE)
+        {
+            return FALSE;
+        }
+        
+        $this->_range['day'] = $points;
+        
         return TRUE;
     }
     private function _verifyMonth($rule)
     {
+        $points = $this->_getRulePoints($rule, 1, 12);
+        if($points===FALSE)
+        {
+            return FALSE;
+        }
+        
+        $this->_range['month'] = $points;
+        
         return TRUE;
     }
     private function _verifyWeek($rule)
     {
+        $points = $this->_getRulePoints($rule, 0, 7);
+        if($points===FALSE)
+        {
+            return FALSE;
+        }
+        
+        $this->_range['week'] = $points;
+        
         return TRUE;
     }
     
@@ -101,7 +155,7 @@ class TaskRule
         $cal_points = array();
         
         #item: x-y/z
-        foreach (split(',', $rule) AS $item)
+        foreach (explode(',', $rule) AS $item)
         {
             $rs = $this->_parseRuleItem($item, $min, $max);
             if(!is_array($rs))
@@ -121,29 +175,30 @@ class TaskRule
         }
     }
     
-    /**
-     * 暂时还未考虑到*号的情况
-     * @param type $item
-     * @param type $min
-     * @param type $max
-     * @return boolean|array
-     */
     private function _parseRuleItem($item,$min,$max)
     {
-        $spit = split('/', $item);
-        $limit = split('-', $spit[0]);
+        $spit = explode('/', $item);
+        $limit = explode('-', $spit[0]);
+        
         if(isset($spit[1]) && (intval($spit[1])<=0 || intval($spit[1])>$max))
         {
             return FALSE;
         }
-        if( intval($limit[0])>$max || ( isset($limit[1]) && intval($limit[1])<=intval($limit[0]) ) || ( isset($limit[1]) && intval($limit[1])>$max ))
+        if($limit[0]=='*')
+        {
+            if(isset($limit[1]))
+            {
+                return FALSE;
+            }
+        }
+        elseif( intval($limit[0])>$max || ( isset($limit[1]) && intval($limit[1])<=intval($limit[0]) ) || ( isset($limit[1]) && intval($limit[1])>$max ))
         {
             return FALSE;
         }
         
         $interval = isset($spit[1]) ? intval($spit[1]) : 1;
-        $range_min = intval($limit[0]);
-        $range_max = isset($limit[1]) ? intval($limit[1]) : intval($limit[0]);
+        $range_min = $limit[0]=='*' ? $min : intval($limit[0]);
+        $range_max = $limit[0]=='*' ? $max : (isset($limit[1]) ? intval($limit[1]) : intval($limit[0]));
         
         $walker = $range_min;
         $range = array();

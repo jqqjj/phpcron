@@ -24,7 +24,7 @@ class EchoTime implements TaskInterface
     
     public function getConfig()
     {
-        return "0-30/6,* * * * * *";
+        return "*/3 * * * 2-5/3 1-4";
     }
     
     public function onStart(array $data)
