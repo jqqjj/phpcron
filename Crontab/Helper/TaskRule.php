@@ -10,6 +10,7 @@ class TaskRule
 {
     private $_rule;
     private $_range=array();
+    private $_deep_search_years = 5;
     
     public function __construct($rule)
     {
@@ -26,6 +27,7 @@ class TaskRule
     
     public function getNextWorkTime($time)
     {
+        $this->_calNextTimeList($time, 15);
         return $time+10;
     }
     
@@ -65,9 +67,38 @@ class TaskRule
                 return FALSE;
         }
         
-        LoggerContainer::getDefaultDriver()->log(print_r($this->_range,true));
-        
         return TRUE;
+    }
+    
+    private function _calNextTimeList($now,$num)
+    {
+        $now_day_time = strtotime(date("Y-m-d", $now));
+        $cal_days = array();
+        
+        for($i=0,$len=floor((strtotime("+{$this->_deep_search_years} years",$now)-$now)/86400);$i<$len;$i++)
+        {
+            if(count($cal_days)>=$num)
+            {
+                break;
+            }
+            $time = strtotime("+{$i} days",$now_day_time);
+            if(in_array(date("j",$time),  $this->_range['day']) && in_array(date("w",$time),  $this->_range['week']) && in_array(date("n",$time),  $this->_range['month']))
+            {
+                $cal_days[] = date("Y-m-d",$time);
+            }
+        }
+        
+        foreach ($cal_days AS $value)
+        {
+            LoggerContainer::getDefaultDriver()->log("_calNextTimeList start:".$value." ".date("H:i:s",$now));
+            $start_time = strtotime($value." ".date("H:i:s",$now));
+            $end_time = strtotime("+1 days",strtotime($value))-1;
+            LoggerContainer::getDefaultDriver()->log("starttime:".$start_time);
+            LoggerContainer::getDefaultDriver()->log("endtime:".$end_time);
+        }
+        
+        //LoggerContainer::getDefaultDriver()->log(print_r($cal_days,true));
+        return $cal_days;
     }
     
     private function _verifySecond($rule)
@@ -136,6 +167,15 @@ class TaskRule
         if($points===FALSE)
         {
             return FALSE;
+        }
+        
+        if(in_array(7, $points))
+        {
+            unset($points[array_search(7, $points)]);
+            if(!in_array(0, $points))
+            {
+                array_unshift($points, 0);
+            }
         }
         
         $this->_range['week'] = $points;

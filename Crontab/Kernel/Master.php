@@ -68,7 +68,7 @@ class Master
             {
                 $this->_killTasks();
                 $this->_dropAllConnections();
-                sleep(1);
+                usleep(5000);
             }
             elseif($this->_status == 'running')
             {
