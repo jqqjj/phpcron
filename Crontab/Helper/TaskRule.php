@@ -27,7 +27,7 @@ class TaskRule
     
     public function getNextWorkTime($time)
     {
-        $this->_calNextTimeList($time, 15);
+        $this->_calNextTimeList($time, 25);
         return $time+10;
     }
     
@@ -72,12 +72,25 @@ class TaskRule
     
     private function _calNextTimeList($now,$num)
     {
+        $times_per_day = array();
+        foreach ($this->_range['hour'] AS $hour)
+        {
+            foreach ($this->_range['minute'] AS $minute)
+            {
+                foreach ($this->_range['second'] AS $second)
+                {
+                    $times_per_day[] = $hour . ' ' . $minute . ' ' . $second;
+                }
+            }
+        }
+        
+        $days_need_search = ceil($num / count($times_per_day)) + 1;
+        
         $now_day_time = strtotime(date("Y-m-d", $now));
         $cal_days = array();
-        
         for($i=0,$len=floor((strtotime("+{$this->_deep_search_years} years",$now)-$now)/86400);$i<$len;$i++)
         {
-            if(count($cal_days)>=$num)
+            if(count($cal_days)>=$days_need_search)
             {
                 break;
             }
@@ -88,13 +101,14 @@ class TaskRule
             }
         }
         
+        LoggerContainer::getDefaultDriver()->log("times per day:".count($times_per_day));
+        LoggerContainer::getDefaultDriver()->log("days_need_search:".$days_need_search);
+        LoggerContainer::getDefaultDriver()->log("cal days:".count($cal_days));
+        
         foreach ($cal_days AS $value)
         {
-            LoggerContainer::getDefaultDriver()->log("_calNextTimeList start:".$value." ".date("H:i:s",$now));
             $start_time = strtotime($value." ".date("H:i:s",$now));
             $end_time = strtotime("+1 days",strtotime($value))-1;
-            LoggerContainer::getDefaultDriver()->log("starttime:".$start_time);
-            LoggerContainer::getDefaultDriver()->log("endtime:".$end_time);
         }
         
         //LoggerContainer::getDefaultDriver()->log(print_r($cal_days,true));
