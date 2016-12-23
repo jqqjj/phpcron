@@ -79,7 +79,7 @@ class TaskRule
             {
                 foreach ($this->_range['second'] AS $second)
                 {
-                    $times_per_day[] = $hour . ' ' . $minute . ' ' . $second;
+                    $times_per_day[] = $hour . ':' . $minute . ':' . $second;
                 }
             }
         }
@@ -94,25 +94,31 @@ class TaskRule
             {
                 break;
             }
-            $time = strtotime("+{$i} days",$now_day_time);
+            $time = $now_day_time + $i * 86400;
             if(in_array(date("j",$time),  $this->_range['day']) && in_array(date("w",$time),  $this->_range['week']) && in_array(date("n",$time),  $this->_range['month']))
             {
                 $cal_days[] = date("Y-m-d",$time);
             }
         }
         
-        LoggerContainer::getDefaultDriver()->log("times per day:".count($times_per_day));
-        LoggerContainer::getDefaultDriver()->log("days_need_search:".$days_need_search);
-        LoggerContainer::getDefaultDriver()->log("cal days:".count($cal_days));
-        
+        $next_list = array();
         foreach ($cal_days AS $value)
         {
-            $start_time = strtotime($value." ".date("H:i:s",$now));
-            $end_time = strtotime("+1 days",strtotime($value))-1;
+            foreach ($times_per_day AS $val)
+            {
+                $run_time = strtotime("$value $val");
+                if($run_time>=$now)
+                {
+                    $next_list[] = date("Y-m-d H:i:s",$run_time);
+                }
+            }
         }
         
-        //LoggerContainer::getDefaultDriver()->log(print_r($cal_days,true));
-        return $cal_days;
+        LoggerContainer::getDefaultDriver()->log("now:".date("Y-m-d H:i:s",$now));
+        LoggerContainer::getDefaultDriver()->log("now:".$now);
+        LoggerContainer::getDefaultDriver()->log("next_list:".print_r($next_list,true));
+        
+        return $next_list;
     }
     
     private function _verifySecond($rule)
