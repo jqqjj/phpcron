@@ -11,6 +11,7 @@ class TaskRule
     private $_rule;
     private $_range=array();
     private $_deep_search_years = 5;
+    private $_next_run_times = array();
     
     public function __construct($rule)
     {
@@ -27,8 +28,15 @@ class TaskRule
     
     public function getNextWorkTime($time)
     {
-        $this->_calNextTimeList($time, 25);
-        return $time+10;
+        $this->_next_run_times = array_filter($this->_next_run_times, function($item) use ($time){
+            return $item>$time;
+        });
+        if(empty($this->_next_run_times))
+        {
+            $this->_next_run_times = $this->_calNextTimeList($time, 10);
+        }
+        
+        return empty($this->_next_run_times) ? null : array_shift($this->_next_run_times);
     }
     
     public function verify()
@@ -107,16 +115,16 @@ class TaskRule
             foreach ($times_per_day AS $val)
             {
                 $run_time = strtotime("$value $val");
-                if($run_time>=$now)
+                if($run_time>$now)
                 {
-                    $next_list[] = date("Y-m-d H:i:s",$run_time);
+                    $next_list[] = $run_time;
+                }
+                if(count($next_list)>=$num)
+                {
+                    break 2;
                 }
             }
         }
-        
-        LoggerContainer::getDefaultDriver()->log("now:".date("Y-m-d H:i:s",$now));
-        LoggerContainer::getDefaultDriver()->log("now:".$now);
-        LoggerContainer::getDefaultDriver()->log("next_list:".print_r($next_list,true));
         
         return $next_list;
     }
