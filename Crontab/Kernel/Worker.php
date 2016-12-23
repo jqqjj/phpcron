@@ -13,7 +13,6 @@ class Worker
     private $_params;
     private $_status;
     private $_instance;
-    private $_history = array();
     
     public function __construct($name,Array $params=array())
     {
@@ -46,27 +45,27 @@ class Worker
             throw new \Exception("Task regulation of {$this->_task} is not correct.");
         }
         
-        LoggerContainer::getDefaultDriver()->log("Task {$this->_task} starts.");
         $this->_instance->onStart($this->_params);
         
         while ($this->_status=='running')
         {
-            LoggerContainer::getDefaultDriver()->log("Worker heartbeat.");
             $now = time();
-            $nextWorkTime = $taskRule->getNextWorkTime($now);
-            if(!in_array($nextWorkTime, $this->_history) && $now>=$nextWorkTime)
+            $nextWorkTime = !empty($nextWorkTime) ? $nextWorkTime : $taskRule->getNextWorkTime($now);
+            if(empty($nextWorkTime))
+            {
+                sleep(60);
+            }
+            elseif($now>=$nextWorkTime)
             {
                 if($this->_instance->canWork())
                 {
                     $this->_instance->onWork();
-                    array_unshift($this->_history, $nextWorkTime);
-                    $this->_history = array_slice($this->_history, 0, 50);
                 }
                 else
                 {
-                    LoggerContainer::getDefaultDriver()->log("Task idioctonia.");
                     posix_kill(getmypid(), SIGUSR2);
                 }
+                unset($nextWorkTime);
             }
             else
             {
@@ -99,7 +98,6 @@ class Worker
         switch ($signo)
         {
             case SIGUSR2:
-                LoggerContainer::getDefaultDriver()->log("Worker receive exit signal,worker pid:".  getmypid());
                 $this->_status = 'exit';
                 break;
             

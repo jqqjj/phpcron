@@ -9,38 +9,33 @@
 namespace TaskPlugin;
 
 use Crontab\Task\TaskInterface;
-use Crontab\Logger\Container\Logger AS LoggerContainer;
 
 class EchoTime implements TaskInterface
 {
     private $_params;
-    private $count = 0;
-    
-    public function canWork()
-    {
-        LoggerContainer::getDefaultDriver()->log('Run EchoTime canWork function.');
-        return $this->count<=3;
-    }
     
     public function getConfig()
     {
-        return "* 54 14 * * *";
+        return "*/2 * * * * *";
+    }
+    
+    public function canWork()
+    {
+        return TRUE;
     }
     
     public function onStart(array $data)
     {
         $this->_params = $data;
-        LoggerContainer::getDefaultDriver()->log('Run EchoTime onStart function.');
     }
     
     public function onStop()
     {
-        LoggerContainer::getDefaultDriver()->log('Run EchoTime onStop function.');
+        
     }
     
     public function onWork()
     {
-        $this->count++;
-        LoggerContainer::getDefaultDriver()->log('Run EchoTime onWork function.');
+        
     }
 }

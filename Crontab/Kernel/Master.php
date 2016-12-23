@@ -267,7 +267,6 @@ class Master
     {
         foreach ($this->_tasks AS $key=>$value)
         {
-            $this->_logger->log("Master kill worker:".$key);
             posix_kill($key, SIGUSR2);
         }
     }
@@ -297,7 +296,6 @@ class Master
             
             //task exit handler
             case SIGCHLD:
-                $this->_logger->log("Master retrieve worker.");
                 $status = NULL;
                 while(($pid=pcntl_waitpid(-1, $status, WNOHANG)) > 0)
                 {

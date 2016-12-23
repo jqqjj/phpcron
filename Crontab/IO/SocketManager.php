@@ -61,7 +61,6 @@ class SocketManager
         {
             return TRUE;
         }
-        LoggerContainer::getDefaultDriver()->log('generate socket');
         
         $port = ConfigManager::get('listen.listen_port');
         

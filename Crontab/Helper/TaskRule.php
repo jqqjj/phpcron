@@ -28,15 +28,15 @@ class TaskRule
     
     public function getNextWorkTime($time)
     {
-        $this->_next_run_times = array_filter($this->_next_run_times, function($item) use ($time){
+        $this->_next_run_times = array_values(array_filter($this->_next_run_times, function($item) use ($time){
             return $item>$time;
-        });
+        }));
         if(empty($this->_next_run_times))
         {
             $this->_next_run_times = $this->_calNextTimeList($time, 10);
         }
         
-        return empty($this->_next_run_times) ? null : array_shift($this->_next_run_times);
+        return empty($this->_next_run_times) ? null : $this->_next_run_times[0];
     }
     
     public function verify()
