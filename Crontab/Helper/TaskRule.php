@@ -58,6 +58,7 @@ class TaskRule
         switch (count($rules))
         {
             case 5:
+                $this->_verifySecond('0');
                 if(!$this->_verifyMinute($rules[0]) || !$this->_verifyHour($rules[1]) || !$this->_verifyDay($rules[2])
                         || !$this->_verifyMonth($rules[3]) || !$this->_verifyWeek($rules[4]))
                 {
