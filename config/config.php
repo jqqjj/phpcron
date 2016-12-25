@@ -15,10 +15,6 @@ return array(
         'run_log'=>'tmp/run_log.txt',
         'error_log'=>'tmp/error.txt',
     ),
-    'listen'=>array(
-        'listen_port'=>6174,
-        'display_errors'=>FALSE,
-    ),
     'plugins'=>array(
         'echoTime'=>array(
             'class'=>'TaskPlugin\EchoTime',

@@ -4,7 +4,6 @@ namespace Crontab\Kernel;
 
 use Crontab\Config\ConfigManager;
 use Crontab\Kernel\Worker;
-use Crontab\IO\SocketManager;
 use Crontab\Logger\Container\Logger AS LoggerContainer;
 use Crontab\Helper\RunnerBox;
 
@@ -23,7 +22,6 @@ class Master
     private $_request;
     //running、exit
     private $_status;
-    private $_socketManager;
     private $_plugins;
 
     public function __construct()
@@ -40,12 +38,6 @@ class Master
         $this->_logger->log("Phpcron starts.");
         
         $this->_status = 'running';
-        
-        //listen task from networks
-        if(!$this->_initListener())
-        {
-            throw new \Exception('Starts failed by error "Can not initiating listener".');
-        }
         
         //load and start default tasks
         $this->_loadTasks();
@@ -67,150 +59,9 @@ class Master
             if($this->_status == 'exit')
             {
                 $this->_killTasks();
-                $this->_dropAllConnections();
-                usleep(5000);
             }
-            elseif($this->_status == 'running')
-            {
-                $this->_processConnections();
-                $this->_dropTimeoutConnections();
-                $this->_processRequest();
-            }
+            sleep(1);
             pcntl_signal_dispatch();
-        }
-    }
-    
-    private function _processRequest()
-    {
-        foreach ($this->_request AS $key=>$value)
-        {
-            //task just will starts within a complete data.
-            if($value['data']===NULL)
-            {
-                continue;
-            }
-            //drop request if task is running or task is not exists.
-            if(!key_exists($value['task'], $this->_plugins) || in_array($value['task'],array_column($this->_tasks, 'name')))
-            {
-                unset($this->_request[$key]);
-                continue;
-            }
-            
-            if($this->_runTask($value['task'], $this->_plugins[$value['task']]['class']))
-            {
-                unset($this->_request[$key]);
-            }
-        }
-    }
-    
-    private function _processConnections()
-    {
-        pcntl_sigprocmask(SIG_BLOCK, array(SIGHUP,SIGINT,SIGQUIT,SIGTERM,SIGUSR1,SIGCHLD));//block signal
-        $sockets = $this->_socketManager->select( array_merge($this->_connections,array($this->_socketManager->getSocket())) );
-        pcntl_sigprocmask(SIG_SETMASK, array());//unblock signal
-        
-        if(empty($sockets))
-        {
-            return ;
-        }
-        
-        //new connection handler
-        if(in_array($this->_socketManager->getSocket(),$sockets))
-        {
-            $this->_acceptNewConnection();
-            unset($sockets[array_search($this->_socketManager->getSocket(), $sockets)]);
-        }
-        
-        foreach ($sockets AS $socket)
-        {
-            $this->_IO($socket);
-        }
-    }
-    
-    private function _IO($socket)
-    {
-        //first read the content length
-        if(!isset($this->_request[(int)$socket]) || !isset($this->_request[(int)$socket]['length']) || $this->_request[(int)$socket]['length']<=0)
-        {
-            $data = $this->_socketManager->read($socket);
-            //data is false means that connection is reset.
-            if($data===FALSE)
-            {
-                $this->_logger->log("Broken connection.");
-                $this->_closeSocket($socket);
-                return FALSE;
-            }
-            $matches_stream = array();$matches_command = array();
-            //close connection if header content is illegal
-            if(!preg_match('/\<stream\>([1-9]\d*)\<\/stream\>/', $data, $matches_stream) || !preg_match('/\<task\>([\w\-\_]+)\<\/task\>/', $data,$matches_command))
-            {
-                $this->_logger->log("Illegal stream len: ". $data);
-                $this->_closeSocket($socket);
-                return FALSE;
-            }
-            //close when write connection false
-            if(FALSE === socket_write($socket, "<stream>{$matches_stream[1]}</stream>\n"))
-            {
-                $this->_logger->log("Can't write back data.");
-                $this->_closeSocket($socket);
-                return FALSE;
-            }
-            //record the length of main content.
-            $this->_request[(int)$socket] = array(
-                'length'=>$matches_stream[1],
-                'task'=>$matches_command[1],
-                'data'=>NULL,
-                'mtime'=>time(),
-            );
-        }
-        //second read main content
-        else
-        {
-            $stream_length = $this->_request[(int)$socket]['length'];
-            
-            $data = $this->_socketManager->read($socket,$stream_length,PHP_BINARY_READ);
-            if($data===FALSE)
-            {
-                $this->_logger->log("Can't read the main data.");
-                $this->_closeSocket($socket);
-                return FALSE;
-            }
-            if(!empty($data) && $this->_request[(int)$socket]['data']===NULL)
-            {
-                $this->_request[(int)$socket]['data'] = $data;
-                $this->_request[(int)$socket]['mtime'] = time();
-            }
-            
-            if(FALSE === socket_write($socket, "<stream>".strlen($data)."</stream>\n"))
-            {
-                $this->_logger->log("Can't write back data.");
-                $this->_closeSocket($socket);
-            }
-        }
-    }
-    
-    private function _acceptNewConnection()
-    {
-        $new_connection = $this->_socketManager->accept();
-        
-        if($new_connection)
-        {
-            $this->_logger->log("Receive a new connection.");
-            if($this->_status != 'running')
-            {
-                $this->_logger->log("Drop the new connection without running.");
-                $this->_closeSocket($new_connection);
-            }
-            else
-            {
-                $this->_connections[(int)$new_connection] = $new_connection;
-                $this->_request[(int)$new_connection] = array(
-                    'length'=>0,
-                    'task'=>'',
-                    'data'=>NULL,
-                    'mtime'=>time(),
-                );
-            }
         }
     }
     
@@ -333,19 +184,6 @@ class Master
             unset($this->_request[(int)$socket]);
         }
         socket_close($socket);
-    }
-    
-    private function _initListener()
-    {
-        $this->_socketManager = new SocketManager();
-        if($this->_socketManager->generate() && $this->_socketManager->set_block_mode(0))
-        {
-            return TRUE;
-        }
-        else
-        {
-            return FALSE;
-        }
     }
     
     private function _registerSignal()
