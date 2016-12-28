@@ -18,54 +18,57 @@ Add a task plugin
 ------------------------
 #####**Append an item config in config file (config/local/config.php) :**
 
-
-    <?php
-    return array(
-        'plugins'=>array(
-	        #item config start
-            'myTaskPlugin'=>array(
-                'class'=>'TaskPlugin\myTaskPluginClass',
-                'enabled'=>TRUE,
-                'params'=>array(
-                    'myTaskPluginParam1'=>'VALUE',
-                    'myTaskPluginParam2'=>'VALUE',
-                ),
-            ),
-            #end of item config
-        ),
-    );
+```php
+<?php
+return array(
+	'plugins'=>array(
+		#item config start
+		'myTaskPlugin'=>array(
+			'class'=>'TaskPlugin\myTaskPluginClass',
+			'enabled'=>TRUE,
+			'params'=>array(
+				'myTaskPluginParam1'=>'VALUE',
+				'myTaskPluginParam2'=>'VALUE',
+			),
+		),
+		#end of item config
+	),
+);
+```
 
 Add Plugin Class
 -----------------------
-    <?php
-    namespace TaskPlugin;
-    use Crontab\Task\TaskInterface;
-    class myTaskPluginClass implements TaskInterface
-    {
-	    private $_params;
-	    public function getConfig()
-	    {
-	        return "*/5 * * * * *";
-	    }
-	    public function canWork()
-	    {
-		    echo "Allow to do task.";
-	        return TRUE;
-	    }
-	    public function onStart(array $data)
-	    {
-		    echo "I'm Starting task.";
-	        $this->_params = $data;
-	    }
-	    public function onStop()
-	    {
-	        echo "I'm stopping task.";
-	    }
-	    public function onWork()
-	    {
-	        echo "I'm doing task.";
-	    }
+```php
+<?php
+namespace TaskPlugin;
+use Crontab\Task\TaskInterface;
+class myTaskPluginClass implements TaskInterface
+{
+	private $_params;
+	public function getConfig()
+	{
+		return "*/5 * * * * *";
 	}
+	public function canWork()
+	{
+		echo "Allow to do task.";
+		return TRUE;
+	}
+	public function onStart(array $data)
+	{
+		echo "I'm Starting task.";
+		$this->_params = $data;
+	}
+	public function onStop()
+	{
+		echo "I'm stopping task.";
+	}
+	public function onWork()
+	{
+		echo "I'm doing task.";
+	}
+}
+```
 
 Crontab syntax
 ---------------------
