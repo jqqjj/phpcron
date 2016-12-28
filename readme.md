@@ -36,7 +36,7 @@ return array(
 );
 ```
 
-#####**Add Plugin Class :**
+#####**Add Plugin Class in Path(TaskPlugin/):**
 ```php
 <?php
 namespace TaskPlugin;
