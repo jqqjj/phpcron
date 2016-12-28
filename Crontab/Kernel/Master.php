@@ -84,9 +84,11 @@ class Master
             return FALSE;
         }
         
+        $params = isset($this->_plugins[$task]['params']) ? $this->_plugins[$task]['params'] : array();
+        
         $runnerBox = new RunnerBox();
-        $pid = $runnerBox->run(function() use ($taskClass){
-            $worker = new Worker($taskClass);
+        $pid = $runnerBox->run(function() use ($taskClass,$params){
+            $worker = new Worker($taskClass,$params);
             $worker->run();
         });
         

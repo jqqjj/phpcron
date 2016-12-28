@@ -16,9 +16,14 @@ return array(
         'error_log'=>'tmp/error.txt',
     ),
     'plugins'=>array(
-        'echoTime'=>array(
-            'class'=>'TaskPlugin\EchoTime',
+        #The best practices is set the plugins record in the local config.php
+        'curl'=>array(
+            'class'=>'TaskPlugin\Curl',
             'enabled'=>TRUE,
+            'params'=>array(
+                'method'=>'GET',
+                'url'=>'www.google.com',
+            ),
         ),
     ),
 );

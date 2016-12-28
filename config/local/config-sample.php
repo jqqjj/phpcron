@@ -2,9 +2,10 @@
 
 return array(
     'plugins'=>array(
-        'echoTime'=>array(
-            'class'=>'TaskPlugin\EchoTime',
+        'PLUGIN_NAME'=>array(
+            'class'=>'TaskPlugin\PLUGIN_CLASS',
             'enabled'=>TRUE,
+            'params'=>array(),#custom params of plugin,optional.
         ),
     ),
 );
