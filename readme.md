@@ -5,8 +5,8 @@ Supports second level and be compatible with expression of linux crontab.
 
 Require:
 
-> php >= 5.5
-> pcntl supports
+* `php >= 5.5` 
+* `pcntl supports` 
 
 
 Use
@@ -36,8 +36,7 @@ return array(
 );
 ```
 
-Add Plugin Class
------------------------
+#####**Add Plugin Class :**
 ```php
 <?php
 namespace TaskPlugin;
