@@ -1,6 +1,7 @@
 #**PHP crontab**
 
 A framework like Linux timing tasks(crontab).
+
 Supports second level and be compatible with expression of linux crontab.
 
 Require:
@@ -16,7 +17,7 @@ Use
 
 Add a task plugin
 ------------------------
-#####**Append an item config in config file (config/local/config.php) :**
+#####**1.Append an item config in config file (config/local/config.php) :**
 
 ```php
 <?php
@@ -36,7 +37,7 @@ return array(
 );
 ```
 
-#####**Add Plugin Class in Path(TaskPlugin/):**
+#####**2.Add Plugin Class in Path(TaskPlugin/):**
 ```php
 <?php
 namespace TaskPlugin;
