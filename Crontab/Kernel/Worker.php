@@ -49,13 +49,13 @@ class Worker
         
         while ($this->_status=='running')
         {
-            $now = time();
-            $nextWorkTime = !empty($nextWorkTime) ? $nextWorkTime : $taskRule->getNextWorkTime($now);
+            $now = microtime(TRUE);
+            $nextWorkTime = !empty($nextWorkTime) ? $nextWorkTime : $taskRule->getNextWorkTime(intval($now));
             if(empty($nextWorkTime))
             {
                 sleep(60);
             }
-            elseif($now>=$nextWorkTime)
+            elseif(intval($now)>=$nextWorkTime)
             {
                 if($this->_instance->canWork())
                 {
@@ -69,7 +69,7 @@ class Worker
             }
             else
             {
-                sleep($nextWorkTime-$now);
+                usleep(($nextWorkTime-$now)*1000*1000);
             }
             
             pcntl_signal_dispatch();

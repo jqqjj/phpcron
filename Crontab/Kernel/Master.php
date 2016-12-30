@@ -16,7 +16,7 @@ use Crontab\Helper\RunnerBox;
 
 class Master
 {
-    private $_tasks;
+    private $_workers;
     private $_logger;
     private $_connections;
     private $_request;
@@ -28,7 +28,7 @@ class Master
     {
         $this->_logger = LoggerContainer::getDefaultDriver();
         $this->_connections = array();
-        $this->_tasks = array();
+        $this->_workers = array();
         $this->_request = array();
         $this->_plugins = ConfigManager::get('plugins');
     }
@@ -39,11 +39,11 @@ class Master
         
         $this->_status = 'running';
         
-        //load and start default tasks
-        $this->_loadTasks();
-        
         //register singal
         $this->_registerSignal();
+        
+        //load and start default tasks
+        $this->_loadTasks();
         
         //loop crontab tasks
         $this->_loop();
@@ -54,12 +54,15 @@ class Master
     
     private function _loop()
     {
-        while($this->_status == 'running' || ($this->_status == 'exit'&&!empty($this->_tasks)) )
+        while($this->_status == 'running' || ($this->_status == 'exit'&&!empty($this->_workers)) )
         {
             if($this->_status == 'exit')
             {
                 $this->_killTasks();
             }
+            
+            $this->_reviveTasks();
+            
             sleep(1);
             pcntl_signal_dispatch();
         }
@@ -67,68 +70,85 @@ class Master
     
     private function _loadTasks()
     {
-        foreach ($this->_plugins AS $key=>$value)
+        foreach ($this->_plugins AS $task_name=>$value)
         {
-            if(!empty($value['enabled']))
+            if(empty($value['enabled']))
             {
-                $this->_runTask($key, $value['class']);
+                continue;
+            }
+            $pid = $this->_runTasks($task_name, $value['class']);
+            if($pid>0)
+            {
+                $this->_workers[$pid] = array(
+                    'name'=>$task_name,
+                    'alive'=>TRUE,
+                    'revive'=>array(),
+                );
             }
         }
     }
     
-    private function _runTask($task,$taskClass)
+    private function _reviveTasks()
     {
-        if(in_array($task,  array_column($this->_tasks, 'name')))
+        foreach ($this->_workers AS $pid=>$value)
         {
-            $this->_logger->log("Task <{$task}> is already running.");
-            return FALSE;
+            if($value['alive'])
+            {
+                continue;
+            }
+            //maximum number of times limit in one minute
+            if(count($this->_workers[$pid]['revive'])>60 && $this->_workers[$pid]['revive'][60]>=time()-60)
+            {
+                unset($this->_workers[$pid]);
+                continue;
+            }
+            
+            $new_pid = $this->_runTasks($value['name'], $this->_plugins[$value['name']]['class']);
+            if($new_pid<=0)
+            {
+                continue;
+            }
+            unset($this->_workers[$pid]);
+            $this->_workers[$new_pid] = array(
+                'name'=>$value['name'],
+                'alive'=>TRUE,
+                'revive'=>array_merge(array(time()),  array_slice($value['revive'], 0, 60)),
+            );
+        }
+    }
+    
+    private function _runTasks($taskName,$taskClass)
+    {
+        foreach ($this->_workers AS $value)
+        {
+            if($taskName == $value['name'] && $value['alive'])
+            {
+                $this->_logger->log("Task <{$taskName}> is already running.");
+                return FALSE;
+            }
         }
         
-        $params = isset($this->_plugins[$task]['params']) ? $this->_plugins[$task]['params'] : array();
+        $params = isset($this->_plugins[$taskName]['params']) ? $this->_plugins[$taskName]['params'] : array();
         
         $runnerBox = new RunnerBox();
-        $pid = $runnerBox->run(function() use ($taskClass,$params){
+        return $runnerBox->run(function() use ($taskClass,$params){
             $worker = new Worker($taskClass,$params);
             $worker->run();
         });
-        
-        if($pid>0)
-        {
-            $this->_tasks[$pid] = array(
-                'name'=>$task,
-            );
-            return $pid;
-        }else
-        {
-            return FALSE;
-        }
-    }
-    
-    private function _dropTimeoutConnections()
-    {
-        foreach ($this->_request AS $key=>$value)
-        {
-            if($value['mtime']+6<=time() && isset($this->_connections[$key]))
-            {
-                $this->_logger->log("Drop timeout connection,connection ID:".$key);
-                $this->_closeSocket($this->_connections[$key]);
-            }
-        }
     }
     
     private function _killTasks()
     {
-        foreach ($this->_tasks AS $key=>$value)
+        foreach ($this->_workers AS $key=>$value)
         {
-            posix_kill($key, SIGUSR2);
-        }
-    }
-    
-    private function _dropAllConnections()
-    {
-        foreach ($this->_connections AS $socket)
-        {
-            $this->_closeSocket($socket);
+            if($value['alive'])
+            {
+                posix_kill($key, SIGUSR2);
+            }
+            else
+            {
+                unset($this->_workers[$key]);
+            }
         }
     }
     
@@ -152,20 +172,20 @@ class Master
                 $status = NULL;
                 while(($pid=pcntl_waitpid(-1, $status, WNOHANG)) > 0)
                 {
-                    if(!key_exists($pid, $this->_tasks))
+                    if(!key_exists($pid, $this->_workers))
                     {
                         continue;
                     }
-                    
-                    if(pcntl_wifsignaled($status))
+                    if(pcntl_wstopsig($status)<=0)
                     {
-                        trigger_error("Task <{$this->_tasks[$pid]['name']}> crash exits.",E_USER_WARNING);
+                        $this->_workers[$pid]['alive'] = FALSE;
+                        trigger_error("Task <{$this->_workers[$pid]['name']}> crash exits.",E_USER_WARNING);
                     }
                     else
                     {
-                        $this->_logger->log("Task <{$this->_tasks[$pid]['name']}> normal exits.");
+                        $this->_logger->log("Task <{$this->_workers[$pid]['name']}> normal exits.");
+                        unset($this->_workers[$pid]);
                     }
-                    unset($this->_tasks[$pid]);
                 }
                 
                 break;
@@ -173,19 +193,6 @@ class Master
             default :
                 break;
         }
-    }
-    
-    private function _closeSocket($socket)
-    {
-        if(array_search($socket, $this->_connections))
-        {
-            unset($this->_connections[array_search($socket, $this->_connections)]);
-        }
-        if(isset($this->_request[(int)$socket]))
-        {
-            unset($this->_request[(int)$socket]);
-        }
-        socket_close($socket);
     }
     
     private function _registerSignal()
