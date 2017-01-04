@@ -1,10 +1,10 @@
 <?php
 
 
-namespace Crontab\Helper;
+namespace Crontab\Daemon;
 
 use Crontab\Config\ConfigManager;
-use Crontab\Helper\RunnerBox;
+use Crontab\Pcntl\RunnerBox;
 use Crontab\Logger\LogFile AS LogFileLogger;
 
 class DaemonManager

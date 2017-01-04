@@ -1,6 +1,6 @@
 <?php
 
-namespace Crontab\Helper;
+namespace Crontab\Pcntl;
 
 class RunnerBox
 {

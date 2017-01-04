@@ -5,7 +5,7 @@ namespace Crontab\Kernel;
 use Crontab\Config\ConfigManager;
 use Crontab\Kernel\Worker;
 use Crontab\Logger\Container\Logger AS LoggerContainer;
-use Crontab\Helper\RunnerBox;
+use Crontab\Pcntl\RunnerBox;
 
 /**
  * 目标：

@@ -5,7 +5,7 @@ namespace Crontab\Kernel;
 
 use Crontab\Logger\Container\Logger AS LoggerContainer;
 use Crontab\Task\TaskInterface;
-use Crontab\Helper\TaskRule;
+use Crontab\Task\TaskRule;
 
 class Worker
 {

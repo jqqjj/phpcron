@@ -4,7 +4,7 @@ namespace Crontab\Kernel;
 
 use Crontab\Input\Argvs;
 use Crontab\Kernel\Master;
-use Crontab\Helper\DaemonManager;
+use Crontab\Daemon\DaemonManager;
 use Crontab\Logger\Driver\DebugDriver;
 use Crontab\Logger\Driver\ErrorDriver;
 use Crontab\Logger\Driver\TerminalDriver;

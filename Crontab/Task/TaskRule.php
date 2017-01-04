@@ -1,7 +1,7 @@
 <?php
 
 
-namespace Crontab\Helper;
+namespace Crontab\Task;
 
 use Crontab\Logger\Container\Logger AS LoggerContainer;
 
