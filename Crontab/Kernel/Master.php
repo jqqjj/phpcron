@@ -179,7 +179,7 @@ class Master
                     if(pcntl_wstopsig($status)<=0)
                     {
                         $this->_workers[$pid]['alive'] = FALSE;
-                        trigger_error("Task <{$this->_workers[$pid]['name']}> crash exits.",E_USER_WARNING);
+                        trigger_error("Task <{$this->_workers[$pid]['name']}> crash exits.",E_USER_ERROR);
                     }
                     else
                     {

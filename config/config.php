@@ -11,6 +11,19 @@ return array(
         'pid_path'=>'tmp',
         'pid_name'=>'phpcron.pid',
     ),
+    #Notity admin the Exception in email
+    /*
+    'admin_mail'=>array(
+        'smtp'=>array(
+            'host'=>'SMTP_HOST',
+            'port'=>SMTP_PORT,
+            'user'=>'SMTP_USER',
+            'password'=>'SMTP_PASSWORD',
+        ),
+        'from_user'=>'EMAIL_FROM',
+        'to_user'=>'EMAIL_TO',
+    ),
+    */
     'exception'=>array(
         'run_log'=>'tmp/run_log.txt',
         'error_log'=>'tmp/error.txt',
