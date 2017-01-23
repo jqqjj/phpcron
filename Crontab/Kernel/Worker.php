@@ -91,6 +91,8 @@ class Worker
         pcntl_signal(SIGQUIT, array($this,'_signalHandler'));
         pcntl_signal(SIGTERM, array($this,'_signalHandler'));
         pcntl_signal(SIGUSR2, array($this,'_signalHandler'));
+        //override master signal handler
+        pcntl_signal(SIGCHLD, array($this,'_signalHandler'));
     }
     
     private function _signalHandler($signo)
