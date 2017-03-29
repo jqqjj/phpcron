@@ -16,7 +16,7 @@ class ConfigManager
         
         return self::$_instance->getConfig($index);
     }
-
+    
     public function __construct()
     {
         if(empty(self::$_config))
