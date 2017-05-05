@@ -69,7 +69,9 @@ class Worker
             }
             else
             {
-                usleep(($nextWorkTime-$now)*1000*1000);
+                //protects the param from overflowing in usleep.
+                $sleep_second = min(2147483647,($nextWorkTime-$now)*1000*1000);
+                usleep($sleep_second);
             }
             
             pcntl_signal_dispatch();
