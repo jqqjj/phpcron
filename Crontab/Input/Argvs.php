@@ -12,7 +12,7 @@ class Argvs
     {
         $this->_argvs = $this->_parseArgvs($argvs);
     }
-
+    
     public function getOption()
     {
         return $this->_argvs;
