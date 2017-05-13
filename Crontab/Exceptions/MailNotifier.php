@@ -8,7 +8,7 @@
 
 namespace Crontab\Exceptions;
 
-use Crontab\Mail\Mailer;
+use Crontab\Mail\PHPMailer;
 use Crontab\Config\ConfigManager;
 
 class MailNotifier
@@ -30,18 +30,33 @@ class MailNotifier
             return FALSE;
         }
         $this->_last_send_time = time();
-        return $sender->sendmail($this->_mail_config['to_user'], $this->_mail_config['to_user'], $this->_mail_config['from_user'], $this->_mail_config['from_user'], "You got an error from phpcron", $message);
+        
+        $sender->setFrom($this->_mail_config['from_user'], $this->_mail_config['from_user']);
+        $sender->addAddress($this->_mail_config['to_user'], $this->_mail_config['to_user']);
+        $sender->addReplyTo($this->_mail_config['from_user'], $this->_mail_config['from_user']);
+        $sender->isHTML(true);
+        
+        $sender->Subject = 'You got an error from phpcron.';
+        $sender->msgHTML($message);
+        return $sender->send();
     }
     
     private function _getSender()
     {
-        if(empty($this->_sender) || !$this->_sender instanceof Mailer)
+        if(empty($this->_sender) || !$this->_sender instanceof PHPMailer)
         {
-            $this->_sender = new Mailer($this->_mail_config['smtp']['host'], $this->_mail_config['smtp']['port']);
-            if(isset($this->_mail_config['smtp']['user']) && isset($this->_mail_config['smtp']['password']))
-            {
-                $this->_sender->setAuthInfo($this->_mail_config['smtp']['user'], $this->_mail_config['smtp']['password']);
+            $mail = new PHPMailer(true);
+            $mail->isSMTP();
+            $mail->Host = $this->_mail_config['smtp']['host'].":".$this->_mail_config['smtp']['port'];
+            if(isset($this->_mail_config['smtp']['user']) && isset($this->_mail_config['smtp']['password'])){
+                $mail->SMTPAuth = true;
+                $mail->Username = $this->_mail_config['smtp']['user'];
+                $mail->Password = $this->_mail_config['smtp']['password'];
             }
+            $mail->CharSet = 'UTF-8';
+            
+            $this->_sender = $mail;
+            return $this->_sender;
         }
         
         return $this->_sender;
