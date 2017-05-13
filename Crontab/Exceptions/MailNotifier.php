@@ -31,6 +31,14 @@ class MailNotifier
         }
         $this->_last_send_time = time();
         
+        $sender->clearAddresses();
+        $sender->clearAllRecipients();
+        $sender->clearAttachments();
+        $sender->clearBCCs();
+        $sender->clearCCs();
+        $sender->clearCustomHeaders();
+        $sender->clearReplyTos();
+        
         $sender->setFrom($this->_mail_config['from_user'], $this->_mail_config['from_user']);
         $sender->addAddress($this->_mail_config['to_user'], $this->_mail_config['to_user']);
         $sender->addReplyTo($this->_mail_config['from_user'], $this->_mail_config['from_user']);
